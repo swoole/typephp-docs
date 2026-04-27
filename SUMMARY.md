@@ -2,3 +2,5 @@
 * [编译](compile.md)
     * [参数](options.md)
 * [调试](debug.md)
+* [兼容性](compatible.md)
+* [专有特性](spec-feature.md)
