@@ -56,3 +56,41 @@ $o = new ArrayObject;
 ```bash
 Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
 ```
+
+## 未定义变量
+在`ZendPHP`可以使用`isset()`判断变量是否存在。`AOT`编译器不支持这种写法。局部变量必须是先定义再使用。因此下面的代码是不被允许的。
+
+```php
+// 变量没有定义，isset 返回 false
+if (!isset($var)) {
+    // stmts
+}
+```
+
+必须修改为：
+```php
+$var = null;
+if (!isset($var)) {
+    // stmts
+}
+```
+`isset($var)`表达式在静态编译时将一直是`true`。
+
+若使用未定义变量，在`ZendPHP`中仅会抛出一条`Warnning`警告，但编译器会直接报错，不允许使用未定义的变量。
+
+```php
+function main()
+{
+    var_dump($testVar);
+}
+```
+
+```bash
+Fatal error: Undefined variable `$testVar` in undef-var.php:4
+```
+
+在 `ZendPHP` 中的执行结果如下：
+```bash
+Warning: Undefined variable $testVar in undef-var.php on line 4
+NULL
+```
