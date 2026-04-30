@@ -1,4 +1,5 @@
 * [安装](install.md)
+    * [Windows环境](windows.md)
 * [编译](compile.md)
     * [参数](options.md)
 * [调试](debug.md)
