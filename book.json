@@ -1,5 +1,5 @@
 {
-    "title": "Swoole Compiler v4 AOT 编译器",
+    "title": "Swoole Compiler AOT 编译器",
     "plugins": [
         "highlight"
     ]
