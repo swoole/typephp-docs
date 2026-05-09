@@ -1,6 +1,6 @@
 ## 准备工作
 
-1. 安装`VS17 (Visual Studio 2022)`，社区版下载地址：<https://visualstudio.microsoft.com/zh-hans/vs/community/>
+1. 安装`VS17 (Visual Studio 2022)`，社区版下载地址：<https://visualstudio.microsoft.com/zh-hans/vs/community/>，安装时务必勾选 `使用 C++ 的桌面开发`
 2. 下载`Swoole-Compiler-Windows`版本，解压至 `D:\workspace\swoole-compiler-windows-x64`
 
 
