@@ -71,6 +71,20 @@ function my_func($a, $b, $c): mixed {
 php::Array list = php_my_func("hello", 1234, php::null);
 ```
 
+### 调用内置函数
+使用`PHPX`提供的`Facade API`
+
+```cpp
+php::var_dump(v1);
+php::file_get_contents(file);
+```
+
+### 调用用户函数
+用户函数必须通过`ZendVM`动态调用。
+```cpp
+php::call("my_user_func", {a, b, c});
+```
+
 ## 命名空间
 若函数使用了命名空间，则需要修改为 `php_{命名空间}__{函数名称}` ，命名空间为多层，则需要将斜杠`\\`替换为双下划线。例如：
 
