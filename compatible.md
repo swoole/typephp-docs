@@ -99,3 +99,26 @@ Fatal error: Undefined variable `$testVar` in undef-var.php:4
 Warning: Undefined variable $testVar in undef-var.php on line 4
 NULL
 ```
+
+## 注解语法
+`AOT`编译器支持注解语法，但由于`ZendVM`自身的限制，不支持非空数组类型的注解参数。
+
+```php
+#[MyAttribute]
+#[MyAttribute(1234)]
+#[MyAttribute(value: 1234)]
+#[MyAttribute(MyAttribute::VALUE)]
+#[MyAttribute([])]
+#[MyAttribute(100 + 200)]
+class Thing
+{
+}
+```
+
+下面的注解语法暂时无法支持：
+```php
+#[MyAttribute([1，2，3])]
+class Thing
+{
+}
+```
