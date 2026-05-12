@@ -1,6 +1,8 @@
 # 安装软件
 下载软件包后，解压至当前目录后执行下列步骤完成安装。
 
+> 下载链接：<https://github.com/swoole/aot-compiler/releases/tag/v0.1.0>
+
 `AOT`编译器支持`Windows`、`macOS`、`Linux`三种操作系统，支持`x86-64`或`ARM64`架构。编译生成的文件是对应操作系统下的原生可执行文件，而不是字节码或者其他中间指令码。
 
 > 注意目前预览版仅支持 `PHP 8.4 +zts +embed`，请确保已安装
