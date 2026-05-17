@@ -45,3 +45,18 @@ ignore:
 
 例如：
 `App\Controller\TestController` 继承自 `Framework\Controller`，而`Framework\Controller`又继承自`Framework\BaseController`。那么这`3`个类就必须全部为静态编译类。
+
+## 5. 函数参数返回值、类属性是否不标注类型？
+
+可以。无类型标注时将自动默认为`any`类型。例如：
+```php
+function foo($a, $b, $c) {
+}
+
+class Bar {
+    public $prop1;
+    static public $prop2;
+}
+```
+
+类型是非强制性的，`AOT`编译器将自动作为`any`类型编译生成指令。但建议对所有函数、类属性标注类型，明确类型可以让编译器生成性能更好代码。

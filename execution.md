@@ -15,7 +15,6 @@ T_ECHO, T_CONSTANT_ENCAPSED_STRING, ';', T_CLOSE_TAG
 
 ### 2. 语法分析（`Syntax Analysis`）
 
-
 使用**Bison**解析器将Token流转换为**抽象语法树(AST)**：
 
 ```c

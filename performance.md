@@ -77,7 +77,53 @@ class Obj {
 ```cpp
 php::Int &property_a = Z_LVAL_P(this_ + property_offset);
 int64_t n = 10000000;
-while(n--) {
+while (n--) {
     property_a += n;
 }
 ```
+
+## 函数/方法调用
+
+### 内置函数/类方法
+由`ZendVM`提供的内置函数、内置类方法，使用`ZendVM`的`zend_call_known_function`动态调用，`AOT`编译器会在运行时一次性获取`zend_function *`指针，并存储至函数表中，减少对`EG(function_table)`的查询。
+
+此类函数通常在编译期就可以得到参数、返回值，并且可以确定函数存在，因此可以被缓存至函数表中，以提高性能。
+
+若使用了动态调用，则无法优化为`known call`。只能在运行时动态调用。
+
+```php
+$fn = "str_repeat";
+// 无法优化
+$fn("a", 100);
+```
+
+### 动态函数/类方法
+有用户代码定义、通过`Composer Autoload`加载的函数和类方法，需要动态查找`EG(function_table)`，获取`zend_function *`指针后提交至`ZendVM`动态执行。
+
+### 原生函数/类方法
+由`AOT`编译后`PHP`定义的函数/类方法将作为原生函数调用。原生函数调用仅需进行入栈和出栈的内存、寄存器操作，相比`ZendVM`的动态函数调用性能更好。
+
+> 原生函数调用不会产生堆栈，无法使用`debug_backtrace`获取
+
+原生函数可被`C++`编译器内联优化，性能会非常高。例如：
+
+```php
+function fib(int $n): int
+{
+    if ($n == 1 || $n == 2) {
+        return 1;
+    } else {
+        return fib($n - 1) + fib($n - 2);
+    }
+}
+
+function main(int $argc, array $argv): void
+{
+    $n = $argv[2];
+    $begin = microtime(true);
+    echo fib($n) . "\n";
+    echo "Time: " . (microtime(true) - $begin) . "\n";
+}
+```
+
+这段代码中`fib`函数将会被编译器进行尾递归优化，最终生成平坦的`CPU`指令，性能将比普通的`PHP`动态函数调用高出数百倍。
