@@ -1,5 +1,3 @@
-`AOT`编译器相比`ZendPHP`最大的优势就是性能。
-
 ## ZendVM 的执行方式
 `ZendVM`执行`PHP`代码分为`5`个步骤：
 
