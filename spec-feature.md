@@ -46,7 +46,7 @@ function objval(mixed $obj, string $class): object
 
 从数组提取元素，默认该变量的类型是`any`。对象可使用`objval()`重新接续类型，其他类型则可以使用类型转换函数或者类型转换语法实现接续。方法如下：
 
-#### 1. 使用转换语法接续类型：
+#### 1. 使用转换语法接续类型
 - 整数：`$v = (int) $array[$key]`
 - 浮点：`$v = (float) $array[$key]`
 - 布尔值：`$v = (bool) $array[$key]`
@@ -56,7 +56,7 @@ function objval(mixed $obj, string $class): object
 
 请注意对象（`object`）类型在`PHP`中实际上是无类型的，它与`any`类型几乎是等价的。若使用`$v = (object) $array[$key]`，`$v`会被声明为`php::Object`而不是`php::Var`，但编译器无法获得该对象的`class`信息。因此`object`转换对编译器来说没有任何意义。同样，`callable`、`iterator`类型对编译器也没有任何帮助。
 
-#### 2. 使用转换函数接续类型：
+#### 2. 使用转换函数接续类型
 - 整数：`$v = intval($array[$key])`
 - 浮点：`$v = floatval($array[$key])`
 - 布尔值：`$v = boolval($array[$key])`

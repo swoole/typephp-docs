@@ -4,6 +4,8 @@
     * [参数](options.md)
 * [调试](debug.md)
 * [兼容性](compatible.md)
+* [执行过程](execution.md)
+* [性能](performance.md)
 * [专有特性](spec-feature.md)
 * [最佳实践](best_practice.md)
 * [C++ 互操作性](cxx.md)
