@@ -117,7 +117,7 @@ class Thing
 
 下面的注解语法暂时无法支持：
 ```php
-#[MyAttribute([1，2，3])]
+#[MyAttribute([1, 2, 3, 'str', bool])]
 class Thing
 {
 }

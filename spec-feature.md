@@ -1,5 +1,7 @@
 `AOT`编译器除了常规的`PHP`语法之外添加了一些专有的特性。非`AOT`编译器可以使用下列的`polyfills`垫片函数实现兼容。
 
+> 文档中`any`类型表示该变量无类型，对应的`PHP`类型为`mixed`，`PHPX`类型为`php::Var`
+
 ## use native_types
 
 要求编译器将`int`、`float`、`bool`类型转为原生的类型，以提高运算性能。
@@ -20,12 +22,12 @@ function foo() {
 ### 垫片函数
 无。在 `ZendPHP` 下无效果。
 
-## objvar($obj, $class)
+## objval($obj, $class)
 将一个变量声明为某个类的对象。此函数只是检查表达式是否为对象类型，并且是`class`的实例。
 作用：从数组中读取元素，会发生类型丢失，使用此函数可以重建类型。
 
 ```php
-$obj = objvar($array['object'], App\Hello\Test::class);
+$obj = objval($array['object'], App\Hello\Test::class);
 $obj->foo();
 ```
  
@@ -40,6 +42,34 @@ function objval(mixed $obj, string $class): object
     }
     throw new Exception('Invalid object type');
 }
+```
+
+从数组提取元素，默认该变量的类型是`any`。对象可使用`objval()`重新接续类型，其他类型则可以使用类型转换函数或者类型转换语法实现接续。方法如下：
+
+#### 1. 使用转换语法接续类型：
+- 整数：`$v = (int) $array[$key]`
+- 浮点：`$v = (float) $array[$key]`
+- 布尔值：`$v = (bool) $array[$key]`
+- 字符串：`$v = (string) $array[$key]`
+- 数组：`$v = (array) $array[$key]`
+
+
+请注意对象（`object`）类型在`PHP`中实际上是无类型的，它与`any`类型几乎是等价的。若使用`$v = (object) $array[$key]`，`$v`会被声明为`php::Object`而不是`php::Var`，但编译器无法获得该对象的`class`信息。因此`object`转换对编译器来说没有任何意义。同样，`callable`、`iterator`类型对编译器也没有任何帮助。
+
+#### 2. 使用转换函数接续类型：
+- 整数：`$v = intval($array[$key])`
+- 浮点：`$v = floatval($array[$key])`
+- 布尔值：`$v = boolval($array[$key])`
+- 字符串：`$v = strval($array[$key])`
+
+请注意内置的转换函数仅此`4`种，`PHP`未提供`arrayval()`函数，因此若需要将变量声明为`array`类型，只能使用转换语法实现。
+
+除了数组元素的类型接续之外，赋值操作若右值为`any`类型，默认左值也会被声明为`any`类型，可以使用上述方法声明更准确的类型。
+
+```php
+$a = any(3.001);
+// $b 的类型将是 php::Int，值会转为 3 
+$b = intval($a);
 ```
 
 ## any($value)

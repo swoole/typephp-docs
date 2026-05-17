@@ -38,3 +38,10 @@ ignore:
 ## 3. 是否可使用 `__FILE__` 和 `__DIR__`
 
 由于`AOT`编译器是在编译阶段确定 `__FILE__` 和 `__DIR__` 魔术常量的值，因此最终的目录是编译时`.php`文件的路径，而不是运行时。因此虽然可以使用魔术常量，但它的结果与预期可能不一致。建议使用 `getcwd()` 或者其他配置文件方式确定最终运行时的目录。
+
+## 4. 是否可以继承动态类
+
+项目中如果某个类必须要继承自`vendor`目录文件定义的动态类。则必须将整个继承链上的所有类全部作为静态编译的类。
+
+例如：
+`App\Controller\TestController` 继承自 `Framework\Controller`，而`Framework\Controller`又继承自`Framework\BaseController`。那么这`3`个类就必须全部为静态编译类。
