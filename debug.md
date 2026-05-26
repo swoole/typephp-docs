@@ -1,7 +1,7 @@
 AOT 编译器仅支持`gdb`调试，不支持`Xdebug`等工具。若要使用调试功能，请确保：
 
 - 优化等级设置为`-O0`，关闭优化，否则函数调用可能会被内联
-- 开启调试符号，编译参数添加`--debug-info`
+- 开启调试符号，编译参数添加`--debug`
 - `PHPX`和`PHP`建议编译为`debug`版本
 
 
@@ -13,6 +13,11 @@ cmake . -D CMAKE_BUILD_TYPE=Debug
 ## PHP
 ```bash
 ./configure --enable-debug
+```
+
+## 编译 PHP 项目
+```bash
+./swoole_compiler project.yml --debug
 ```
 
 # GDB 调试

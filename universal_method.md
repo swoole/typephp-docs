@@ -382,13 +382,12 @@ $s->mbRTrim();                      // mb_rtrim($s)
 
 ### 7.10 C++ 原生方法
 
-以下方法直接调用 `phpx::Variant` 的 C++ 成员函数，无 PHP 函数对应：
+以下方法直接调用 `phpx::Variant` 的 `C++` 成员函数，无 `PHP` 函数对应：
 
 ```php
 $s = "hello";
 
 $s->equals("hello");        // C++ String.equals() —— 值比较
-$s->append(" world");       // C++ String.append() —— 追加（修改原值）
 ```
 
 ---
