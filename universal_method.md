@@ -772,19 +772,7 @@ echo "100000000000000000000 = " . $result;
 
 ### 12.1 可变方法（修改原值）
 
-**Int 和 Float** 的算术方法直接操作 C++ 原生变量，会**修改原值**：
-
-```php
-$a = 100;
-$b = $a->add(50);   // 这一步既修改了 $a（变为 150），又返回新值给 $b
-echo $a;   // 150 —— 已被修改
-echo $b;   // 150
-
-$a->inc();          // $a 变为 151
-$a->dec();          // $a 变为 150
-```
-
-**Array** 的变异方法会**修改原数组**：
+**Array** 的变异方法可能会**修改原数组**：
 
 ```php
 $arr = [1, 2, 3];
@@ -798,6 +786,20 @@ $arr->clean();      // 修改 $arr → []
 
 ### 12.2 不可变方法（返回新值）
 
+除了数组之外，其他类型均为不可变方法，只会返回新值，**不修改原值**：修改原值
+
+**Int 和 Float** 的算术方法：
+
+```php
+$a = 100;
+$b = $a->add(50); 
+echo $a;   // 50 
+echo $b;   // 150
+
+$a->inc();           // 返回 51
+$a->dec();          // 返回 50
+```
+
 **BigInt、Decimal、BigFloat** 的所有方法都**不修改原值**，返回新创建的对象：
 
 ```php
@@ -808,26 +810,18 @@ $a = std::bigInt(100);
 $a->add(50);        // 返回值被丢弃！$a 依然是 100
 ```
 
-**String** 的大部分方法也返回新值：
+**String** 的所有方法，也都是返回新值，原有字符串不变：
 
 ```php
 $s = "hello";
 $upper = $s->upper();  // $s 依然是 "hello"，$upper 是 "HELLO"
 ```
 
-**例外**：`String.append()` 是变异方法（`direct_method_mutate`），会修改原字符串：
-
-```php
-$s = "hello";
-$s->append(" world");  // $s 变为 "hello world"
-```
-
 ### 12.3 可变方法汇总
 
 | Handler 类型 | 影响类型 | 示例 |
 |-------------|---------|------|
-| `calc_op` | Int, Float | `add`, `sub`, `mul`, `div`, `mod`, `inc`, `dec` |
-| `direct_method_mutate` | String, Array | `append`, `set`, `del`, `clean` |
+| `direct_method_mutate` |  Array | `append`, `set`, `del`, `clean` |
 | `php_fn_ref` | Array | `push`, `pop`, `shift`, `unshift`, `sort`, `sortDesc`, `splice`, `walk` |
 
 ---
@@ -926,8 +920,7 @@ function main(): void {
 
 ### 14.3 注意事项
 
-- 函数**第一个参数**是接收者（receiver），从方法调用中自动传入
-- 扩展方法的返回类型固定为 `Var`
+- 函数**第一个参数**是接收者（`receiver`），从方法调用中自动传入，参数类型必须与扩展方法对应的类型一致，例如：`array_flatten`扩展方法，第一个参数的类型比如是`array`
 - 需要先定义函数再调用——编译器在分析阶段发现函数，转换阶段使用它们
 - 方法的驼峰命名会**自动转为下划线命名**：`isPrime` → `is_prime`，`flattenNestedArray` → `flatten_nested_array`
 
