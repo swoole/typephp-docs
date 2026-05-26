@@ -10,4 +10,5 @@
 * [最佳实践](best_practice.md)
 * [C++ 互操作性](cxx.md)
 * [高精度运算](math.md)
+* [基础类型方法](universal_method.md)
 * [常见问题](question.md)
