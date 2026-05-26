@@ -49,6 +49,8 @@ $str = strval($obj);
 
 这里的行为与`ZendPHP`完全不同，在`ZendPHP`中`$str`变量会从字符串类型转为对象。
 
+> `ZendPHP`在底层设计上是`any`类型的，语言层面不会存储变量的类型
+
 除了字符串之外，对象的类型也是不可变的。
 
 ```php
@@ -61,6 +63,22 @@ $o = new ArrayObject;
 ```bash
 Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
 ```
+
+## 变量作用域
+由于`PHP`的设计所有局部变量`Local Var`的作用域是`function`级别的，所以即使在`if/else/for/while`代码块中声明的变量也会被当做`function`内的顶层局部变量来处理。这与`ZendPHP`行为是一致的。
+
+```php
+function foo() {
+    if ($cond) {
+        $a = [];
+    }
+    // 这是不被允许的
+    // $a 虽然是在 if 语句中声明，但实际的作用域是整个 function
+    $a = "str";
+}
+```
+
+
 
 ## 未定义变量
 在`ZendPHP`可以使用`isset()`判断变量是否存在。`AOT`编译器不支持这种写法。局部变量必须是先定义再使用。因此下面的代码是不被允许的。
