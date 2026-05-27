@@ -22,6 +22,101 @@ function foo() {
 ### 垫片函数
 无。在 `ZendPHP` 下无效果。
 
+## use bigint_types
+
+将当前文件中所有整数字面量自动声明为 `BigInt` 类型，无需手动使用 `std::bigInt()` 包装。
+
+```php
+declare(strict_types=1);
+use bigint_types;
+
+function main(): void {
+    // 普通整数字面量自动成为 BigInt
+    $a = 42;
+    echo $a->toString();   // "42"
+
+    // BigInt 之间运算
+    $b = $a + 10;
+    echo $b->toString();   // "52"
+
+    // 字面量运算也是 BigInt
+    $c = 100 + 200;
+    echo $c->toString();   // "300"
+}
+```
+
+使用 `use bigint_types` 后，所有 `Scalar_Int` 字面量在编译时会被转为 `php::newBigInt(N)` 调用。若不使用此指令，则只有 19 位及以上的超长整数字面量才会被自动识别为 BigInt（参见 [math.md §11](math.md#11-超长字面量自动识别)）。
+
+### 与 `use native_types` 的区别
+
+| 指令 | 整数字面量类型 | 适用场景 |
+|------|--------------|---------|
+| 无 | `php::Int`（原生 int64） | 普通整数运算 |
+| `use native_types` | `php::Int`（原生 int64） | 高性能整数运算 |
+| `use bigint_types` | `php::BigInt`（任意精度） | 需要大整数或链式调用 BigInt 方法 |
+
+`use bigint_types` 和 `use native_types` 可以同时使用。同时使用时，非字面量的整数变量仍为 `php::Int`，但整数字面量会被提升为 `php::BigInt`。
+
+### 垫片函数
+无。在 `ZendPHP` 下无效果。
+
+## use decimal_types
+
+将当前文件中所有浮点数字面量自动声明为 `Decimal` 类型，无需手动使用 `std::decimal()` 包装。
+
+```php
+declare(strict_types=1);
+use decimal_types;
+
+function main(): void {
+    // 普通浮点字面量自动成为 Decimal
+    $a = 3.1;
+    echo $a->toString();   // "3.1"
+
+    // Decimal 之间运算
+    $b = 2.5;
+    $c = $a->add($b);
+    echo $c->toString();   // "5.6"
+
+    // 混合运算：Int + Float 字面量 → Decimal
+    $d = 10 + 0.5;
+    echo $d->toString();   // "10.5"
+}
+```
+
+使用 `use decimal_types` 后，所有 `Scalar_Float` 字面量在编译时会被转为 `php::newDecimal(...)` 调用。若不使用此指令，则只有 16 位及以上有效数字的浮点字面量才会被自动识别为 Decimal。
+
+> **注意**：由于 PHP 解析器在解析浮点数字面量时可能已经引入了二进制浮点误差，建议在高精度要求下仍然使用字符串形式的 `std::decimal("...")` 构造。`use decimal_types` 最适合在全部使用 Decimal 运算的项目中减少样板代码。
+
+### 与 `use bigint_types` 同时使用
+
+```php
+declare(strict_types=1);
+use bigint_types;
+use decimal_types;
+
+function main(): void {
+    // 整数字面量 → BigInt
+    $a = 100;
+    echo $a->toString();   // "100"
+
+    // 浮点字面量 → Decimal
+    $b = 2.5;
+    echo $b->toString();   // "2.5"
+
+    // BigInt + Int 字面量 → BigInt
+    $c = $a + 50;
+    echo $c->toString();   // "150"
+
+    // Decimal + Float 字面量 → Decimal
+    $d = $b + 1.5;
+    echo $d->toString();   // "4.0"
+}
+```
+
+### 垫片函数
+无。在 `ZendPHP` 下无效果。
+
 ## objval($obj, $class)
 将一个变量声明为某个类的对象。此函数只是检查表达式是否为对象类型，并且是`class`的实例。
 作用：从数组中读取元素，会发生类型丢失，使用此函数可以重建类型。
