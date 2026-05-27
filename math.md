@@ -320,6 +320,9 @@ $i = $a->abs();         // 绝对值
 
 // 特殊方法
 $j = $a->gcd(15);       // 最大公约数：gcd($a, 15)
+$k = $a->divmod(3);     // 商和余数：返回 [$quotient, $remainder]
+$l = $a->powmod(5, 97); // 模幂：($a ** 5) % 97
+$m = $a->sqrt();        // 平方根（截断取整）
 
 // 比较方法
 $cmp = $a->cmp(100);    // 比较：返回 -1/0/1
@@ -342,6 +345,16 @@ echo $d->sub(std::decimal("50.25"))->toString();  // "73.206"
 echo $d->mul(2)->toString();                      // "246.912"
 echo $d->div(3)->toString();                      // "41.152"
 echo $d->mod(std::decimal("5.0"))->toString();    // "3.456"
+echo $d->pow(2)->toString();                      // "15241.543936"
+
+// 特殊方法
+$q = $d->divmod(std::decimal("10"));  // 商和余数：[$q, $r]
+echo $d->powmod(3, std::decimal("100"))->toString();  // 模幂：($d**3) % 100
+echo $d->sqrt()->toString();          // 平方根
+echo $d->floor()->toString();         // 向下取整
+echo $d->ceil()->toString();          // 向上取整
+echo $d->round()->toString();         // 四舍五入到整数
+echo $d->round(2)->toString();        // 保留 2 位小数
 
 // 一元方法
 echo $d->neg()->toString();   // "-123.456"
@@ -350,6 +363,7 @@ echo $d->abs()->toString();   // "123.456"
 // 比较与转换
 echo $d->cmp(std::decimal("100")) > 0 ? "greater" : "less";  // "greater"
 echo $d->toInt();             // 123
+echo $d->toFloat();           // 123.456
 echo $d->toString();          // "123.456"
 ```
 
