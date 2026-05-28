@@ -230,3 +230,37 @@ function &refval(&$var)
     return $var;
 }
 ```
+
+## stream_cast($stream)
+将一个变量声明为 Stream 类型。作用：从数组中读取元素时编译器无法追踪其具体类型，使用 `stream_cast()` 可以重建 Stream 类型，从而支持链式调用 `write()`、`read()`、`close()` 等 Stream 方法。
+
+此函数通常用于 `proc_open()` 或 `stream_socket_pair()` 返回的管道数组。
+
+```php
+// stream_socket_pair 返回两个 stream 元素组成的数组
+$sockets = stream_socket_pair(
+    STREAM_PF_UNIX,
+    STREAM_SOCK_STREAM,
+    0
+);
+
+// 编译器无法追踪数组元素的类型，使用 stream_cast 重建
+$client = stream_cast($sockets[0]);
+$server = stream_cast($sockets[1]);
+
+$client->write("hello");
+echo $server->read(5);   // "hello"
+
+$client->close();
+$server->close();
+```
+
+`stream_cast()` 在编译期被直接替换为表达式本身，无任何运行时开销。
+
+### 垫片函数
+```php
+function stream_cast($stream)
+{
+    return $stream;
+}
+```

@@ -55,7 +55,7 @@ echo $big->mul(2)->toString();  // → "24691357802469135780"
 | **String** | 70+ | 字符串操作、搜索、编码、Hash、多字节、序列化 |
 | **Array** | 50+ | 增删改查、排序、遍历、集合运算、序列化 |
 | **Stream** | 30+ | 读写、定位、锁、Socket、过滤 |
-| **BigInt** | 16 | 算术、比较、转换、GCD、divmod、powmod、sqrt |
+| **BigInt** | 24 | 算术、比较、转换、GCD、位运算、位移、divmod、powmod、sqrt |
 | **Decimal** | 18 | 算术、比较、转换、pow、divmod、powmod、sqrt、floor、ceil、round |
 | **BigFloat** | 10 | 算术、比较、转换 |
 
@@ -658,6 +658,16 @@ $k = $a->divmod(3);     // 商和余数：返回 [$q, $r]
 $l = $a->powmod(5, 97); // 模幂：($a ** 5) % 97
 $m = $a->sqrt();        // 平方根（截断取整）
 
+// 位运算方法
+$n = $a->bitAnd(0xFF);   // 按位与：$a & 0xFF
+$o = $a->bitOr(0xFF);    // 按位或：$a | 0xFF
+$p = $a->bitXor(0xFF);   // 按位异或：$a ^ 0xFF
+$q = $a->bitNot();       // 按位取反：~$a
+$r = $a->testBit(3);         // 测试第 3 位是否为 1
+$s = $a->popCount();         // 二进制中 1 的个数
+$t = $a->bitShiftLeft(3);    // 左移：$a << 3
+$u = $a->bitShiftRight(2);   // 右移：$a >> 2
+
 // 比较
 $cmp = $a->cmp(100);    // -1/0/1
 
@@ -681,6 +691,14 @@ $a->toFloat();          // → float（可能丢精度）
 | `divmod($x)` | 1 | Array | 商和余数 |
 | `powmod($exp, $mod)` | 2 | BigInt | 模幂运算 |
 | `sqrt()` | 0 | BigInt | 平方根（截断） |
+| `bitAnd($x)` | 1 | BigInt | 按位与 |
+| `bitOr($x)` | 1 | BigInt | 按位或 |
+| `bitXor($x)` | 1 | BigInt | 按位异或 |
+| `bitNot()` | 0 | BigInt | 按位取反 |
+| `testBit($index)` | 1 | Int | 测试某位是否为 1 |
+| `popCount()` | 0 | Int | 二进制 1 的个数 |
+| `bitShiftLeft($n)` | 1 | BigInt | 左移 `$a << $n` |
+| `bitShiftRight($n)` | 1 | BigInt | 右移 `$a >> $n` |
 | `cmp($x)` | 1 | Int | 比较 |
 | `toString()` | 0 | String | 转字符串 |
 | `toInt()` | 0 | Int | 转整数 |
