@@ -59,6 +59,8 @@ echo $big->mul(2)->toString();  // → "24691357802469135780"
 | **Decimal** | 18 | 算术、比较、转换、pow、divmod、powmod、sqrt、floor、ceil、round |
 | **BigFloat** | 10 | 算术、比较、转换 |
 
+> **类型转换方法**：`toInt()` / `toFloat()` / `toString()` / `toBool()` / `toArray()` / `toStream()` / `toBigInt()` / `toBigFloat()` / `toDecimal()` / `toObject()` / `toStd*` 等关键词方法不属于通用方法，它们是编译器内置的一等公民关键词，详见 [类型转换](type-convert.md)。
+
 ---
 
 ## 4. Int 整型方法
@@ -854,13 +856,12 @@ $upper = $s->upper();  // $s 依然是 "hello"，$upper 是 "HELLO"
 
 ## 13. Var 类型的方法查找
 
-当变量的类型为 `Var`（通用 PHP 类型）时，编译器会按以下顺序依次在方法表中查找：
+当变量的类型为 `Var`（通用 PHP 类型）时，编译器会按以下优先级查找：
 
-```
-String → Array → Int → Float → Bool → Stream → BigInt → Decimal → BigFloat
-```
-
-一旦找到匹配的方法名，就生成对应类型的调用代码。如果找不到，则退化为动态方法调用（通过 ZendVM）。
+1. **内置关键词方法**（`to*` 系列，由 `KEYWORD_METHOD_MAP` 定义）
+2. **关键词扩展方法**（根命名空间 `__` 开头的函数，第一个参数为 `mixed`）
+3. **类型扩展方法**（按 String → Array → Int → Float → Bool → Stream → BigInt → Decimal → BigFloat 顺序查找）
+4. **动态调用**（退化为 ZendVM 方法调用）
 
 ```php
 // $x 的类型是 Var（来自函数返回值、数组提取等）
@@ -878,7 +879,7 @@ echo $x->contains("test");
 
 ---
 
-## 14. 扩展方法：自动发现
+## 14. 类型扩展方法
 
 除了内置的通用方法外，编译器还支持**自定义扩展方法**。只要在当前项目中定义了命名符合约定的 PHP 函数，编译器就会自动将其发现为通用方法。
 
@@ -952,9 +953,116 @@ function main(): void {
 
 ---
 
-## 15. 完整示例
+## 15. 关键词扩展方法
 
-### 15.1 字符串处理管道
+除了按类型前缀注册的扩展方法外，编译器还支持**关键词扩展方法（keyword extension methods）**。这类方法作用于**任意类型**的 receiver（`mixed` / `any` / `var`），无需按类型注册。
+
+### 15.1 命名约定
+
+在根命名空间中定义 `__` 开头的函数，通过驼峰转下划线命名后，即可作为任意类型上的方法调用：
+
+```php
+// 定义：__snake_case 函数，第一个参数为 mixed/any
+function __var_dump(mixed $var): void {
+    var_dump($var);
+}
+// 调用：$anyVar->camelCase()
+$str = "hello";
+$str->varDump();        // 输出 string(5) "hello"
+```
+
+命名转换规则：方法调用的**驼峰命名自动转为下划线命名**，加上 `__` 前缀查找函数。例如 `varDump` → `__var_dump`，`someMethod` → `__some_method`。
+
+### 15.2 函数签名要求
+
+关键词扩展方法必须满足以下条件：
+
+- 定义在**根命名空间**（`namespace` 为空）
+- 函数名以 **`__` 开头**
+- **第一个参数**的类型为 `mixed` 或 `any`
+
+```php
+// ✅ 合法的关键词扩展方法
+function __json_pretty(mixed $var): string {
+    return json_encode($var, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+}
+
+// ❌ 有命名空间 — 不会被注册
+namespace Utils;
+function __debug(mixed $var): void { ... }
+
+// ❌ 第一个参数不是 mixed/any — 不会被注册
+function __to_upper(string $var): string { ... }
+```
+
+### 15.3 参数与返回值
+
+方法调用的参数从第二个参数开始传递，返回类型由函数声明推断：
+
+```php
+declare(strict_types=1);
+use native_types;
+
+function __assert_type(mixed $var, string $expected): bool {
+    return gettype($var) === $expected;
+}
+
+function main(): void {
+    $val = 42;
+    $val->assertType("integer");  // → __assert_type($val, "integer")
+    // 返回类型为 bool（从函数声明推断）
+}
+```
+
+### 15.4 方法查找优先级
+
+当 receiver 类型为 `mixed` / `any` / `var` 时，方法查找按以下优先级：
+
+1. **`to*` 内置关键词方法**（`toInt`、`toString`、`toArray` 等，由 `KEYWORD_METHOD_MAP` 定义）
+2. **`__` 关键词扩展方法**（根命名空间 `__` 开头，第一个参数为 `mixed`）
+3. **类型扩展方法**（按 String → Array → Int → Float → Bool → Stream → BigInt → Decimal → BigFloat 顺序查找）
+4. **动态调用**（退化为 ZendVM 的方法调用）
+
+```php
+// toArray 是内置关键词，优先级高于 __to_array 扩展方法
+$obj->toArray();  // → 始终生成 php::toArray($obj)
+
+// varDump 不是内置关键词 → 查找 __var_dump 函数
+$str->varDump();  // → __var_dump($str)
+```
+
+### 15.5 完整示例
+
+```php
+<?php
+declare(strict_types=1);
+use native_types;
+
+function __var_dump(mixed $var): void {
+    var_dump($var);
+}
+
+function __to_json(mixed $var): string {
+    return json_encode($var, JSON_UNESCAPED_UNICODE);
+}
+
+function main(): void {
+    $str = "hello world";
+    $str->varDump();    // string(11) "hello world"
+
+    $arr = ["name" => "test", "value" => 42];
+    echo $arr->toJson();  // {"name":"test","value":42}
+}
+?>
+```
+
+与类型扩展方法不同，关键词扩展方法**不限制 receiver 的具体类型**，适用于需要在所有类型上提供统一工具方法的场景（如调试输出、序列化等）。
+
+---
+
+## 16. 完整示例
+
+### 16.1 字符串处理管道
 
 ```php
 <?php
@@ -978,7 +1086,7 @@ function main(): void {
 ?>
 ```
 
-### 15.2 数组数据处理
+### 16.2 数组数据处理
 
 ```php
 <?php
@@ -1014,7 +1122,7 @@ function main(): void {
 ?>
 ```
 
-### 15.3 高精度计算与链式调用
+### 16.3 高精度计算与链式调用
 
 ```php
 <?php
@@ -1052,7 +1160,7 @@ function main(): void {
 ?>
 ```
 
-### 15.4 文件处理
+### 16.4 文件处理
 
 ```php
 <?php

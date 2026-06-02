@@ -117,29 +117,20 @@ function main(): void {
 ### 垫片函数
 无。在 `ZendPHP` 下无效果。
 
-## objval($obj, $class)
-将一个变量声明为某个类的对象。此函数只是检查表达式是否为对象类型，并且是`class`的实例。
-作用：从数组中读取元素，会发生类型丢失，使用此函数可以重建类型。
+## toObject(ClassName::class)
+
+`toObject()` 是编译器内置的关键词方法，用于从 `any` / `mixed` 类型重建带类信息的对象类型。从数组读取元素或调用返回 `any` 类型的函数后，编译器丢失了具体的类信息，可使用此方法完成类型接续。
 
 ```php
-$obj = objval($array['object'], App\Hello\Test::class);
+$obj = $array['object']->toObject(App\Hello\Test::class);
 $obj->foo();
 ```
- 
-编译器可以重新得到 `$obj` 对象的类型。这样就有助于编译器将对`$obj`的方法调用转为`Native Call`而不是`zend_call_function()`的动态调用，性能可以得到大幅提升。
 
-### 垫片函数
-```php
-function objval(mixed $obj, string $class): object
-{
-    if ($obj instanceof $class) {
-        return $obj;
-    }
-    throw new Exception('Invalid object type');
-}
-```
+编译器可以重新得到 `$obj` 对象的类型，将其方法调用转为 `Native Call` 而不是 `zend_call_function()` 的动态调用，性能可大幅提升。
 
-从数组提取元素，默认该变量的类型是`any`。对象可使用`objval()`重新接续类型，其他类型则可以使用类型转换函数或者类型转换语法实现接续。方法如下：
+> 不带参数的 `toObject()` 返回的是无类信息的 `php::Object`，与 `(object)` 转换等价。要重建具体类信息，必须传入 `ClassName::class`。
+
+从数组提取元素，默认该变量的类型是`any`。对象可使用`$var->toObject(ClassName::class)`重新接续类型，其他类型则可以使用类型转换函数或者类型转换语法实现接续。方法如下：
 
 #### 1. 使用转换语法接续类型
 - 整数：`$v = (int) $array[$key]`
@@ -231,10 +222,11 @@ function &refval(&$var)
 }
 ```
 
-## stream_cast($stream)
-将一个变量声明为 Stream 类型。作用：从数组中读取元素时编译器无法追踪其具体类型，使用 `stream_cast()` 可以重建 Stream 类型，从而支持链式调用 `write()`、`read()`、`close()` 等 Stream 方法。
+## toStream() 关键词方法
 
-此函数通常用于 `proc_open()` 或 `stream_socket_pair()` 返回的管道数组。
+`toStream()` 是编译器内置的关键词方法，用于将变量重建为 Stream 类型。从数组中读取元素时编译器无法追踪其具体类型，调用 `toStream()` 可以重建 Stream 类型，从而支持链式调用 `write()`、`read()`、`close()` 等 Stream 方法。
+
+此方法通常用于 `proc_open()` 或 `stream_socket_pair()` 返回的管道数组。
 
 ```php
 // stream_socket_pair 返回两个 stream 元素组成的数组
@@ -244,9 +236,9 @@ $sockets = stream_socket_pair(
     0
 );
 
-// 编译器无法追踪数组元素的类型，使用 stream_cast 重建
-$client = stream_cast($sockets[0]);
-$server = stream_cast($sockets[1]);
+// 编译器无法追踪数组元素的类型，使用 toStream() 重建
+$client = $sockets[0]->toStream();
+$server = $sockets[1]->toStream();
 
 $client->write("hello");
 echo $server->read(5);   // "hello"
@@ -255,12 +247,4 @@ $client->close();
 $server->close();
 ```
 
-`stream_cast()` 在编译期被直接替换为表达式本身，无任何运行时开销。
-
-### 垫片函数
-```php
-function stream_cast($stream)
-{
-    return $stream;
-}
-```
+`toStream()` 在编译期被直接替换为 `php::toStream()` 调用，无任何运行时开销。

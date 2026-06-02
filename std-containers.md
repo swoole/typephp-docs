@@ -1,32 +1,91 @@
-## Std 容器与 UnsafePtr
+## Std 容器
 
-AOT 编译器将 C++ 标准库容器直接映射为 `php::` 类型，提供零开销的类型安全存储。此外，`UnsafePtr` 和 `std::unsafe_cast` 允许在函数边界传递容器的引用，避免拷贝。
+AOT 编译器将 C++ 标准库容器封装为 Box 资源，通过 `php::Var` 持有，提供零开销的类型安全存储。容器本体位于 `StdContainerBox<T>` 内部，通过 `_ref` 引用访问，跨函数传递时 Box 资源保持引用语义——被调方修改会反映到原容器。
 
 ### 四种 Std 容器
 
 | 容器 | C++ 类型 | PHP 表达式 | 说明 |
 |------|---------|-----------|------|
-| 定长数组 | `php::StdArray<T, N>` | `std::array(type, size)` | 编译期固定大小，默认栈上分配 |
+| 定长数组 | `php::StdArray<T, N>` | `std::array(type, size)` | 编译期固定大小，通过 Box 堆上分配 |
 | 动态数组 | `php::StdVector<T>` | `std::vector(type, [size])` | `std::vector` 包装，堆上分配 |
 | 有序映射 | `php::StdMap<K, T>` | `std::map(ktype, vtype)` | `std::map`，字符串键使用 `zend_binary_strcmp` |
 | 哈希映射 | `php::StdUnorderedMap<K, T>` | `std::unordered_map(ktype, vtype)` | `std::unordered_map`，字符串键使用 `zend_string_hash_val` |
+
+### 内部实现
+
+每个 std 容器变量在 C++ 中展开为两条语句：
+
+```cpp
+php::Var v = php::Var(new php::StdContainerBox<php::StdVector<php::Int>>(typeId));
+auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->container;
+```
+
+- **`php::Var v`** — Box 资源句柄，拥有容器所有权，可跨函数传递
+- **`auto &v_ref`** — 容器本体引用，所有读写操作通过此引用进行
 
 ### 值类型参数
 
 容器值类型通过辅助类常量指定：
 
-| 辅助类 | 可用常量 | 映射类型 |
-|--------|---------|---------|
-| `native_types` | `type_int` | `php::Int` |
-| `native_types` | `type_float` | `php::Float` |
-| `native_types` | `type_bool` | `php::Bool` |
-| `complex_types` | `type_string` / `type_str` | `php::Str` |
-| `complex_types` | `type_array` | `php::Array` |
-| `complex_types` | `type_object` | `php::Object` |
-| `complex_types` | `type_any` / `type_var` | `php::Var` |
-| — | `ClassName::class` | `php::Object`（带类信息） |
+| 辅助类 | 可用常量 | 映射类型 | C++ 存储 |
+|--------|---------|---------|----------|
+| `native_types` | `type_int` | `php::Int` | `php::Int` |
+| `native_types` | `type_float` | `php::Float` | `php::Float` |
+| `native_types` | `type_bool` | `php::Bool` | `php::Bool` |
+| `native_types` | `type_bigint` | `php::BigInt` | `php::Var` |
+| `native_types` | `type_bigfloat` | `php::BigFloat` | `php::Var` |
+| `native_types` | `type_decimal` | `php::Decimal` | `php::Var` |
+| `complex_types` | `type_string` / `type_str` | `php::Str` | `php::Str` |
+| `complex_types` | `type_array` | `php::Array` | `php::Array` |
+| `complex_types` | `type_object` | `php::Object` | `php::Object` |
+| `complex_types` | `type_any` / `type_var` | `php::Var` | `php::Var` |
+| `complex_types` | `type_stream` | `php::Stream` | `php::Var` |
+| — | `ClassName::class` | `php::Object`（带类信息） | `php::Object` |
+
+> **注意**：`BigInt`、`BigFloat`、`Decimal`、`Stream` 底层存储使用 `php::Var`（Box 资源），写入时编译器自动通过 `php::newBigInt()`、`php::newBigFloat()` 等函数进行类型转换，读取后可直接调用对应的通用方法（如 `->toString()`）。
 
 键类型仅支持 `native_types::type_int` 和 `complex_types::type_string`。
+
+### 高精度类型与 Stream 示例
+
+```php
+declare(strict_types=1);
+use native_types;
+
+// BigInt vector —— 写入时 int 字面量自动转换为 BigInt
+$bigVec = std::vector(native_types::type_bigint);
+$bigVec[] = 99;
+$bigVec[] = 12345678901234567890;
+var_dump($bigVec[0]->toString());  // "99"
+
+// BigFloat map —— key 为 int，value 为 BigFloat
+$bigMap = std::map(native_types::type_int, native_types::type_bigfloat);
+$bigMap[0] = 3.14;
+$bigMap[1] = 2.71;
+var_dump($bigMap[0]->toString());  // "3.1400000000000001"
+
+// Decimal array —— 定长 Decimal 数组
+$decArray = std::array(native_types::type_decimal, 3);
+$decArray[0] = 0.1;
+$decArray[1] = 0.2;
+var_dump($decArray[0]->toString());  // "0.1"
+
+// Stream vector —— 存放多个流资源
+$streamVec = std::vector(complex_types::type_stream);
+$fp = fopen("test.txt", "r");
+$streamVec[] = $fp;
+var_dump($streamVec[0]->read(1024));
+```
+
+生成的 C++ 代码使用 `StdVector<php::Var>` 等 Var 类型存储，写入时编译器自动插入类型转换：
+
+```cpp
+php::Var bigVec = php::Var(new php::StdContainerBox<php::StdVector<php::Var>>(1));
+auto &bigVec_ref = bigVec.toBox<php::StdContainerBox<php::StdVector<php::Var>>>()->container;
+bigVec_ref.push_back(php::newBigInt(99L));                         // int → BigInt
+bigVec_ref.push_back(php::newBigInt(12345678901234567890L));       // int → BigInt
+php::BigInt::toString(bigVec_ref.offsetGet(php::toInt(0L)));       // 调用通用方法
+```
 
 ---
 
@@ -68,33 +127,40 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::StdVector<php::Int> v{};
-v.push_back(php::toInt(10L));
-v.push_back(php::toInt(20L));
-v.push_back(php::toInt(30L));
-php::echo(v.offsetGet(php::toInt(0L)));
-v.offsetGet(php::toInt(1L)) += php::toInt(5L);
-php::echo(php::toInt(v.size()));
+php::Var v = php::Var(new php::StdContainerBox<php::StdVector<php::Int>>(1));
+auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->container;
+v_ref.push_back(php::toInt(10L));
+v_ref.push_back(php::toInt(20L));
+v_ref.push_back(php::toInt(30L));
+php::echo(v_ref.offsetGet(php::toInt(0L)));
+v_ref.offsetGet(php::toInt(1L)) += php::toInt(5L);
+php::echo(php::toInt(v_ref.size()));
 ```
 
 **指定初始大小**：
 
 ```php
 $v = std::vector(native_types::type_int, 100);
-// 等价于: php::StdVector<php::Int> v(100);
+```
+
+生成的 C++ 代码：
+
+```cpp
+php::Var v = php::Var(new php::StdContainerBox<php::StdVector<php::Int>>(1, 100));
+auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->container;
 ```
 
 ### StdVector 方法速查
 
 | 操作 | PHP | 生成的 C++ |
 |------|-----|-----------|
-| 追加 | `$v[] = $x` | `v.push_back(x)` |
-| 读取 | `$v[$i]` | `v.offsetGet(i)` |
-| 写入 | `$v[$i] = $x` | `v.offsetSet(i, x)` |
-| 复合赋值 | `$v[$i] += $x` | `v.offsetGet(i) += x` |
-| 大小 | `count($v)` | `v.size()` |
-| 遍历 | `foreach ($v as $val)` | `for (auto it = v.begin(); ...)` |
-| 删除 | `unset($v[$i])` | `v.offsetUnset(i)` → 重置为 `T{}` |
+| 追加 | `$v[] = $x` | `v_ref.push_back(x)` |
+| 读取 | `$v[$i]` | `v_ref.offsetGet(i)` |
+| 写入 | `$v[$i] = $x` | `v_ref.offsetSet(i, x)` |
+| 复合赋值 | `$v[$i] += $x` | `v_ref.offsetGet(i) += x` |
+| 大小 | `count($v)` | `v_ref.size()` |
+| 遍历 | `foreach ($v as $val)` | `for (auto it = v_ref.begin(); ...)` |
+| 删除 | `unset($v[$i])` | `v_ref.offsetUnset(i)` → 重置为 `T{}` |
 
 > **注意**：`unset` 将元素重置为 `T{}`（零值），不会缩减数组大小。
 
@@ -102,7 +168,7 @@ $v = std::vector(native_types::type_int, 100);
 
 ## 2. StdArray — 定长数组
 
-基于 `std::array<T, N>`，编译期确定大小，默认栈上分配，支持边界检查。
+基于 `std::array<T, N>`，编译期确定大小，通过 `StdContainerBox` 在堆上分配，支持边界检查。
 
 ```php
 declare(strict_types=1);
@@ -136,10 +202,11 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::StdArray<php::Int, 5> a{};  // 默认构造，零初始化
-a[0L] = php::toInt(42L);
-a.offsetSet(php::toInt(1L), php::toInt(100L));
-a.offsetSet(php::toInt(4L), php::toInt(999L));
+php::Var a = php::Var(new php::StdContainerBox<php::StdArray<php::Int, 5>>(1));
+auto &a_ref = a.toBox<php::StdContainerBox<php::StdArray<php::Int, 5>>>()->container;
+a_ref[php::safeIndex(php::toInt(0L), 5)] = php::toInt(42L);
+a_ref.offsetSet(php::toInt(1L), php::toInt(100L));
+a_ref.offsetSet(php::toInt(4L), php::toInt(999L));
 ```
 
 ### 边界检查
@@ -166,42 +233,26 @@ std::fill($matrix[0], 0);
 生成的 C++ 类型：
 
 ```cpp
-php::StdArray<php::StdArray<php::Int, 5>, 4> matrix{};
-matrix[0L][0L] = php::toInt(1L);
+php::Var matrix = php::Var(new php::StdContainerBox<php::StdArray<php::StdArray<php::Int, 5>, 4>>(1));
+auto &matrix_ref = matrix.toBox<php::StdContainerBox<php::StdArray<php::StdArray<php::Int, 5>, 4>>>()->container;
+matrix_ref[0L][0L] = php::toInt(1L);
 ```
 
-### 大数组堆分配
+### 内存分配
 
-单个 StdArray 超过 `MAX_BYTES_IN_STACK`（65536 字节）时，编译器自动改为 `std::make_unique` 堆分配以避免栈溢出。
-
-```cpp
-// 小数组（≤ 65536 字节）——栈上分配
-php::StdArray<php::Int, 100> small{};        // 100 × 8 = 800 字节 → 栈
-
-// 大数组（> 65536 字节）——自动转为堆分配
-php::StdArray<php::Int, 10000> large;        // 10000 × 8 = 80000 字节 → 堆
-// 生成: auto large = std::make_unique<php::StdArray<php::Int, 10000>>();
-// 访问: large->offsetGet(i) / large->offsetSet(i, v)
-```
-
-编译器在 `genScopeVarDecl()` 中根据元素类型大小 × 元素数量计算总字节数，超过阈值时自动切换为 `std::make_unique` 分配，访问语法从 `container.method()` 变为 `container->method()`。此过程对 PHP 代码完全透明——用法不变。
-
-| 条件 | 分配方式 | 访问语法 |
-|------|---------|---------|
-| `sizeof(T) × N ≤ 65536` | 栈上 `T name{}` | `name.method()` |
-| `sizeof(T) × N > 65536` | 堆上 `auto name = std::make_unique<T>()` | `name->method()` |
+所有 std 容器（包括 StdArray）均通过 `php::StdContainerBox<T>` 封装，Box 对象在堆上分配。容器本体（`container` 成员）位于 Box 内部，随 Box 一起在堆上管理。访问始终通过 `name_ref` 引用，对 PHP 代码完全透明——用法不变。
 
 ### StdArray 方法速查
 
 | 操作 | PHP | 生成的 C++ |
 |------|-----|-----------|
-| 读取 | `$a[$i]` | `a.offsetGet(i)` （运行时边界检查） |
-| 写入 | `$a[$i] = $x` | `a.offsetSet(i, x)` |
-| 字面量索引 | `$a[3]` | `a[3L]` （编译期边界检查） |
-| 大小 | `count($a)` | `a.size()` |
-| 遍历 | `foreach ($a as $val)` | `for (auto it = a.begin(); ...)` |
+| 读取 | `$a[$i]` | `a_ref.offsetGet(i)` （运行时边界检查） |
+| 写入 | `$a[$i] = $x` | `a_ref.offsetSet(i, x)` |
+| 字面量索引 | `$a[3]` | `a_ref[3L]` （编译期边界检查） |
+| 大小 | `count($a)` | `a_ref.size()` |
+| 遍历 | `foreach ($a as $val)` | `for (auto it = a_ref.begin(); ...)` |
 | 填充 | `std::fill($a, $v)` | 循环赋值 |
-| 删除 | `unset($a[$i])` | `a.offsetUnset(i)` → 重置为 `T{}` |
+| 删除 | `unset($a[$i])` | `a_ref.offsetUnset(i)` → 重置为 `T{}` |
 
 ---
 
@@ -245,11 +296,12 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::StdMap<php::Str, php::Int> m{};
-m.offsetSet(php::Str("alpha"), php::toInt(100L));
-m.offsetSet(php::Str("beta"), php::toInt(200L));
-php::echo(m.offsetGet(php::Str("alpha")));
-m.offsetGet(php::Str("alpha")) += php::toInt(10L);
+php::Var m = php::Var(new php::StdContainerBox<php::StdMap<php::Str, php::Int>>(1));
+auto &m_ref = m.toBox<php::StdContainerBox<php::StdMap<php::Str, php::Int>>>()->container;
+m_ref.offsetSet(php::Str("alpha"), php::toInt(100L));
+m_ref.offsetSet(php::Str("beta"), php::toInt(200L));
+php::echo(m_ref.offsetGet(php::Str("alpha")));
+m_ref.offsetGet(php::Str("alpha")) += php::toInt(10L);
 ```
 
 ### 读取行为差异
@@ -261,12 +313,12 @@ m.offsetGet(php::Str("alpha")) += php::toInt(10L);
 
 | 操作 | PHP | 生成的 C++ |
 |------|-----|-----------|
-| 写入 | `$m[$k] = $v` | `m.offsetSet(k, v)` |
-| 读取 | `$m[$k]` | `m.offsetGet(k)` （不存在则抛异常） |
-| 复合赋值 | `$m[$k] += $v` | `m.offsetGet(k) += v` |
-| 大小 | `count($m)` | `m.size()` |
-| 遍历 | `foreach ($m as $k => $v)` | `for (auto it = m.begin(); ...)` |
-| 删除 | `unset($m[$k])` | `m.offsetUnset(k)` |
+| 写入 | `$m[$k] = $v` | `m_ref.offsetSet(k, v)` |
+| 读取 | `$m[$k]` | `m_ref.offsetGet(k)` （不存在则抛异常） |
+| 复合赋值 | `$m[$k] += $v` | `m_ref.offsetGet(k) += v` |
+| 大小 | `count($m)` | `m_ref.size()` |
+| 遍历 | `foreach ($m as $k => $v)` | `for (auto it = m_ref.begin(); ...)` |
+| 删除 | `unset($m[$k])` | `m_ref.offsetUnset(k)` → 真正删除（`erase`） |
 
 ---
 
@@ -295,9 +347,10 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::StdUnorderedMap<php::Int, php::Object> u{};
-u.offsetSet(php::toInt(1L), user1);
-u.offsetSet(php::toInt(2L), user2);
+php::Var u = php::Var(new php::StdContainerBox<php::StdUnorderedMap<php::Int, php::Object>>(1));
+auto &u_ref = u.toBox<php::StdContainerBox<php::StdUnorderedMap<php::Int, php::Object>>>()->container;
+u_ref.offsetSet(php::toInt(1L), user1);
+u_ref.offsetSet(php::toInt(2L), user2);
 ```
 
 ### StdMap vs StdUnorderedMap
@@ -312,9 +365,9 @@ u.offsetSet(php::toInt(2L), user2);
 
 ---
 
-## 5. UnsafePtr 与 std::unsafe_cast
+## 5. 跨函数引用传递与 toStd* 关键词方法
 
-当需要将 std 容器的**引用**传递给另一函数时，直接传递会产生拷贝。`UnsafePtr` 和 `std::unsafe_cast` 提供了零拷贝的引用传递机制。
+Std 容器以 `php::Var`（Box 资源）形式持有，作为函数参数传递时传递的是 Box 句柄。被调方可通过 `toStd*` 关键词方法（如 `toStdVector`、`toStdArray`）提取容器引用，修改会反映到调用方的原容器——**零拷贝，零分配**。
 
 ### 工作机制
 
@@ -324,20 +377,19 @@ sequenceDiagram
     participant Runtime as phpx 运行时
     participant Callee as 被调方
 
-    Caller->>Runtime: $vector → php_create_unsafe_ptr(&vector, typeId)
-    Runtime-->>Caller: UnsafePtr Box 资源（void* + typeId）
-    Caller->>Callee: 函数调用（传递 UnsafePtr）
+    Caller->>Runtime: $vector（Box 资源，含 container 引用 + typeId）
+    Caller->>Callee: 函数调用（传递 php::Var Box 句柄）
 
-    Callee->>Runtime: std::unsafe_cast(type, $unsafePtr)
-    Runtime->>Runtime: toBox<UnsafePtr>() 提取指针
+    Callee->>Runtime: $source->toStdVector(type)
+    Runtime->>Runtime: php::toStdContainer<T>(var, typeId) 提取 Box
     Runtime->>Runtime: 校验 type_id 是否匹配
     Runtime-->>Callee: 返回容器引用 T&
 
     Note over Callee: 直接读写原始容器，零拷贝
 ```
 
-1. **调用方**：将 std 容器传给接受 `UnsafePtr` 的函数时，编译器生成 `php_create_unsafe_ptr(&container, typeId)`，将容器指针和类型 ID 封装为 Box 资源
-2. **被调方**：使用 `std::unsafe_cast(type, $unsafePtr)` 提取指针并做运行时类型校验
+1. **调用方**：将 std 容器变量传给被调方——编译器直接传递 `php::Var` Box 句柄
+2. **被调方**：使用 `$source->toStd*(type)` 提取容器引用并做运行时类型校验
 3. 校验通过后直接返回容器引用——**零拷贝，零分配**
 
 ### 使用示例
@@ -346,10 +398,10 @@ sequenceDiagram
 declare(strict_types=1);
 use native_types;
 
-// 接受 UnsafePtr 参数，通过 unsafe_cast 获取容器引用
-function vector_update(UnsafePtr $unsafePtr): void
+// 被调方：接收容器并修改
+function vector_update($source): void
 {
-    $v = std::unsafe_cast(std::vector(native_types::type_int), $unsafePtr);
+    $v = $source->toStdVector(native_types::type_int);
     // $v 现在是调用方 vector 的引用，修改会反映到原容器
     var_dump($v[1]);
     $v[2] = 9;
@@ -361,7 +413,7 @@ function main(): void {
     $vector[1] = 7;
     $vector[2] = 3;
 
-    vector_update($vector);   // 传递引用，非拷贝
+    vector_update($vector);   // 传递 Box 句柄，内部引用原容器
     var_dump($vector[2]);     // 9 —— 修改已生效
 }
 ```
@@ -377,19 +429,20 @@ int(9)
 
 ```cpp
 // vector_update
-void php_vector_update(php::Var unsafePtr) {
-    auto &v = php_unsafe_cast<php::StdVector<php::Int>>(unsafePtr, 1);
-    php::var_dump(v.offsetGet(php::toInt(1L)));
-    v.offsetSet(php::toInt(2L), php::toInt(9L));
+void php_vector_update(php::Var source) {
+    auto &v_ref = php::toStdContainer<php::StdVector<php::Int>>(source, 1);
+    php::var_dump(v_ref.offsetGet(php::toInt(1L)));
+    v_ref.offsetSet(php::toInt(2L), php::toInt(9L));
 }
 
 // main
-php::StdVector<php::Int> vector(3);
-vector.offsetSet(php::toInt(0L), php::toInt(1L));
-vector.offsetSet(php::toInt(1L), php::toInt(7L));
-vector.offsetSet(php::toInt(2L), php::toInt(3L));
-php_vector_update(php_create_unsafe_ptr(&vector, 1));
-php::var_dump(vector.offsetGet(php::toInt(2L)));
+php::Var vector = php::Var(new php::StdContainerBox<php::StdVector<php::Int>>(1, 3));
+auto &vector_ref = vector.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->container;
+vector_ref.offsetSet(php::toInt(0L), php::toInt(1L));
+vector_ref.offsetSet(php::toInt(1L), php::toInt(7L));
+vector_ref.offsetSet(php::toInt(2L), php::toInt(3L));
+php_vector_update(vector);                                          // 传递 Box 句柄
+php::var_dump(vector_ref.offsetGet(php::toInt(2L)));                // 9
 ```
 
 ### 运行时类型校验
@@ -397,10 +450,10 @@ php::var_dump(vector.offsetGet(php::toInt(2L)));
 类型 ID 在编译期分配，运行时校验。类型不匹配时抛出 `TypeError`：
 
 ```php
-function process_float_array(UnsafePtr $unsafePtr): void
+function process_float_array($source): void
 {
     // 期望 float 数组
-    $array = std::unsafe_cast(std::array(native_types::type_float, 3), $unsafePtr);
+    $array = $source->toStdArray(native_types::type_float, 3);
 }
 
 function main(): void {
@@ -409,20 +462,8 @@ function main(): void {
     try {
         process_float_array($array);
     } catch (TypeError $e) {
-        echo $e->getMessage();  // "std::unsafe_cast(): UnsafePtr type mismatch"
+        echo $e->getMessage();  // "std container type mismatch"
     }
-}
-```
-
-### Polyfill
-
-```php
-class std {
-    // 创建 UnsafePtr，传递容器引用
-    public static function unsafe_ptr(mixed &$value): mixed { return null; }
-
-    // 从 UnsafePtr 恢复容器引用，附带类型校验
-    public static function unsafe_cast(mixed $type, mixed $ptr): mixed { return $ptr; }
 }
 ```
 
@@ -430,11 +471,10 @@ class std {
 
 ## 6. 限制
 
-1. **顶层作用域声明**：std 容器和 `std::unsafe_cast` 只能在函数顶层作用域声明，不能在 `if`/`for`/`while` 等嵌套块中
+1. **顶层作用域声明**：std 容器和 `toStd*` 转换方法只能在函数顶层作用域声明，不能在 `if`/`for`/`while` 等嵌套块中
 2. **不可重新赋值**：变量一旦声明为某种 std 容器类型，不能重新赋值给不同类型的容器
 3. **不支持嵌套访问（非 Array 类型）**：`$vec[a][b]` 仅 StdArray 支持嵌套；StdVector/StdMap/StdUnorderedMap 不支持
 4. **foreach 中不可删除**：StdMap/StdUnorderedMap 处于 foreach 循环中时，不可 `unset` 其元素
 5. **键类型限制**：map/unordered_map 键仅支持 `type_int` 和 `type_string`
-6. **UnsafePtr 参数不可重新赋值**：`UnsafePtr` 类型参数在函数内不可被重新赋值（含 `&$unsafePtr`）
-7. **大 StdArray 强制堆分配**：超过 65536 字节自动转为 `std::make_unique`
-8. **unset 语义**：对容器元素 `unset` 是重置为零值（`T{}`），不是真正的删除或缩容
+6. **unset 语义差异**：StdVector/StdArray 对元素 `unset` 是重置为零值（`T{}`），不改变容器大小；StdMap/StdUnorderedMap 对元素 `unset` 是真正删除（`erase`），会缩减容器大小，之后读取该键会抛出异常
+7. **不可作为引用参数传递**：std 容器变量不可通过 `&$var` 引用方式传递

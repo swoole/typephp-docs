@@ -138,10 +138,14 @@ $u[1] = new User(1);
 | `native_types` | `type_int` | `'int'` | 标注整型元素 |
 | `native_types` | `type_float` | `'float'` | 标注浮点元素 |
 | `native_types` | `type_bool` | `'bool'` | 标注布尔元素 |
+| `native_types` | `type_bigint` | `'bigint'` | 标注 BigInt 元素 |
+| `native_types` | `type_bigfloat` | `'bigfloat'` | 标注 BigFloat 元素 |
+| `native_types` | `type_decimal` | `'decimal'` | 标注 Decimal 元素 |
 | `complex_types` | `type_string` / `type_str` | `'string'` | 标注字符串元素 |
 | `complex_types` | `type_array` | `'array'` | 标注数组元素 |
 | `complex_types` | `type_object` | `'object'` | 标注对象元素 |
 | `complex_types` | `type_any` / `type_var` | `'any'` | 标注动态类型元素 |
+| `complex_types` | `type_stream` | `'stream'` | 标注 Stream 元素 |
 
 容器值类型也可以是任意 PHP 类名（如 `User::class`），编译器会为每个具体类型生成独立的 C++ 模板实例。
 
@@ -193,6 +197,8 @@ $u[1] = new User(1);
 
 ## 6. 类型转换
 
+> `to*` 关键词方法是实现类型转换的主要途径，详细说明见 [类型转换](type-convert.md) 文档。
+
 ### 6.1 自动类型提升
 
 Big* 类型与普通 Int/Float 混合运算时，编译器自动进行类型提升：
@@ -236,12 +242,12 @@ $h = std::decimal($a->toString());   // BigInt → String → Decimal
 
 ```php
 // 对象类型接续
-$user = objval($array['user'], User::class);
+$user = $array['user']->toObject(User::class);
 echo $user->greet();  // 编译器可生成 Native Call
 
 // Stream 类型接续
 $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
-$client = stream_cast($sockets[0]);
+$client = $sockets[0]->toStream();
 $client->write("hello");
 
 // 基础类型转换语法
@@ -258,7 +264,7 @@ $v = boolval($array['active']);   // → php::Bool
 $v = strval($array['name']);      // → php::Str
 ```
 
-> **注意**：`(object)` 转换得到的是 `php::Object`，**不包含具体的类信息**，编译器无法对其方法进行 Native Call 优化。请始终使用 `objval()` 重建对象类型。
+> **注意**：`(object)` 转换得到的是 `php::Object`，**不包含具体的类信息**，编译器无法对其方法进行 Native Call 优化。请始终使用 `toObject(ClassName::class)` 重建对象类型。
 
 ### 6.4 类型丢弃
 
@@ -353,7 +359,7 @@ PHP 的联合类型（`int|float`、`int|string` 等）在编译时退化为 `ph
 
 ### 7.6 object 类型不保留类信息
 
-`(object)` 转换和 `object` 类型声明只产生 `php::Object`，编译器不知道具体的类名，无法优化方法调用。必须使用 `objval()` 重建。
+`(object)` 转换和 `object` 类型声明只产生 `php::Object`，编译器不知道具体的类名，无法优化方法调用。必须使用 `toObject(ClassName::class)` 重建。
 
 ### 7.7 Std 容器键类型限制
 
