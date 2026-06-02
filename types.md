@@ -302,13 +302,6 @@ function main() {
 
 `any()` 在编译期被直接替换为表达式本身，**零运行时开销**。
 
-### 垫片函数
-```php
-function any(mixed $var): mixed
-{
-    return $var;
-}
-```
 
 ## 7. 类型限制
 

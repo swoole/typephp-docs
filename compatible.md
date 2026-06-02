@@ -33,20 +33,11 @@ $str = "hello world";
 $str = new StringObject("hello");
 ```
 
-无法将`string`类型的变量，赋值为对象。若文件使用了严格类型，`declare(strict_types=1)` 上述代码将出现编译错误。
+无法将`string`类型的变量，赋值为对象。
 
 ```bash
 Fatal error: Cannot re-assign variable from `php::Object` to `php::Str`
 ```
-
-若未声明严格类型，则自动转为字符串。相当于以下代码：
-
-```php
-$str = "hello world";
-$obj = new StringObject("hello");
-$str = strval($obj);
-```
-
 这里的行为与`ZendPHP`完全不同，在`ZendPHP`中`$str`变量会从字符串类型转为对象。
 
 > `ZendPHP`在底层设计上是`any`类型的，语言层面不会存储变量的类型
@@ -62,6 +53,12 @@ $o = new ArrayObject;
 
 ```bash
 Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
+```
+## 严格模式
+`AOT` 编译器不允许手动设置当前文件为非严格模式：`declare(strict_types=0)`，这会导致编译错误：
+
+```bash
+Fatal error: declare(strict_types=0) is not allowed, only strict_types=1 is supported
 ```
 
 ## 变量作用域

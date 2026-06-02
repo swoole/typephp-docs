@@ -14,6 +14,7 @@
 * [C++ 互操作性](cxx.md)
     * [Box 对象封装](box.md)
 * [高精度运算](math.md)
-* [基础类型方法](universal_method.md)
+* [通用方法](universal_method.md)
+* [关键词方法](keyword-method.md)
 * [最佳实践](best_practice.md)
 * [常见问题](question.md)

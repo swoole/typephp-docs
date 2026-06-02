@@ -1,4 +1,4 @@
-`AOT`编译器除了常规的`PHP`语法之外添加了一些专有的特性。非`AOT`编译器可以使用下列的`polyfills`垫片函数实现兼容。
+`AOT`编译器除了常规的`PHP`语法之外添加了一些专有的特性。
 
 > 文档中`any`类型表示该变量无类型，对应的`PHP`类型为`mixed`，`PHPX`类型为`php::Var`
 
@@ -18,9 +18,6 @@ function foo() {
 ```
 
 使用`use native_types`后，局部变量赋值为整数时，会被声明为`php::Int`而不是`php::Var`，这在密集运算场景下会有巨大的性能提升。若不添加，则默认为`php::Var`，将使用`zval`结构体保存整数。
-
-### 垫片函数
-无。在 `ZendPHP` 下无效果。
 
 ## use bigint_types
 
@@ -56,9 +53,6 @@ function main(): void {
 | `use bigint_types` | `php::BigInt`（任意精度） | 需要大整数或链式调用 BigInt 方法 |
 
 `use bigint_types` 和 `use native_types` 可以同时使用。同时使用时，非字面量的整数变量仍为 `php::Int`，但整数字面量会被提升为 `php::BigInt`。
-
-### 垫片函数
-无。在 `ZendPHP` 下无效果。
 
 ## use decimal_types
 
@@ -113,9 +107,6 @@ function main(): void {
     echo $d->toString();   // "4.0"
 }
 ```
-
-### 垫片函数
-无。在 `ZendPHP` 下无效果。
 
 ## toObject(ClassName::class)
 
@@ -176,16 +167,32 @@ $a = any(10); // $a 的类型为 Var
 $b = $a / 3;  // $b 的值为 3.33333...，类型为浮点型
 ```
 
-### 垫片函数
+
+## objval($value, $className)
+
+从 `mixed` / `any` 类型变量重建带类信息的对象类型，是
+
+`$var->toObject(ClassName::class)` 的函数式写法。与 `any()` 类似，`objval()` 在 AOT 编译器中被编译期替换为表达式本身，零运行时开销。
+
 ```php
-function any(mixed $var): mixed
-{
-    return $var;
-}
+$obj = $array['object'];
+$typed = objval($obj, App\Hello\Test::class);
+$typed->foo();  // 编译器可生成 Native Call
 ```
 
-## refval($value)
-在动态调用中将值传递修改为引用传递。例如下面的代码：
+`objval()` 第二个参数仅支持字符串字面量或 `ClassName::class` 常量。
+
+```php
+// ✅ 正确用法
+$obj = objval($var, TestObjval::class);
+$obj = objval($var, 'TestObjval');
+
+// ❌ 第二个参数不能是变量
+$obj = objval($var, $someClass);
+```
+
+## refval($variable)
+在动态调用中将值传递修改为引用传递。**`refval()` 仅接受变量（Variable），不能传入表达式**。例如下面的代码：
 
 ```php
 eval('function retval_test(&$name) { $name .= "refval test"; }');
@@ -195,6 +202,15 @@ retval_test(refval($name));
 ```
 
 `eval()` 是一个运行时执行指令的函数，它动态生成了一个`retval_test`函数。由于在静态编译阶段，根本不存在`retval_test`函数，因此编译器无法将它的参数识别为引用传递，这时就需要`refval()`函数显式地将`$name`转为引用传递。
+
+以下用法是**错误**的：
+
+```php
+// ❌ refval() 不能传入表达式
+retval_test(refval("literal string"));
+retval_test(refval($a + $b));
+retval_test(refval(foo()));
+```
 
 而下面的代码是不需要添加`refval()`的：
 ```php
@@ -214,13 +230,6 @@ function main()
 
 `parse_str()`是一个内置函数，在编译期就可以得到它的参数信息，第二个参数是引用类型，因此编译器会自动将参数修改为引用传递，而不需要额外添加`refval()`函数。
 
-### 垫片函数
-```php
-function &refval(&$var)
-{
-    return $var;
-}
-```
 
 ## toStream() 关键词方法
 

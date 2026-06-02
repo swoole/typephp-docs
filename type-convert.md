@@ -185,7 +185,7 @@ function object_convert(mixed $input): void
 | `$x->toObject()` | `php::toObject($x)` | 无（`php::Object`） |
 | `$x->toObject(User::class)` | `php::toObject($x, ce_User, true)` | 有（编译器知道具体类） |
 
-> **提示**：`toObject(ClassName::class)` 替代了已移除的 `objval()` 函数，建议在需要链式调用时优先使用。
+> **提示**：`toObject(ClassName::class)` 和 `objval($var, ClassName::class)` 均可用于对象类型接续，前者支持链式调用。
 
 ---
 
