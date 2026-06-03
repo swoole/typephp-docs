@@ -3,6 +3,7 @@
 * [编译](compile.md)
     * [参数](options.md)
 * [调试](debug.md)
+    * [性能分析](profiling.md)
 * [类型系统](types.md)
     * [类型转换](type-convert.md)
     * [Std 容器](std-containers.md)

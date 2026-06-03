@@ -44,15 +44,12 @@ php bin/compiler.php project.yml --debug
 | `-O0` | 单独设置优化级别为 0（等同于 `--debug` 的优化部分） |
 | `--sanitize=address` | 启用 AddressSanitizer，检测内存越界、use-after-free 等 |
 | `--sanitize=undefined` | 启用 UndefinedBehaviorSanitizer，检测整数溢出、空指针等 |
-| `-p`, `--profile` | 插入性能分析探针，配合 `perf` 使用 |
 | `-j <num>` | 并行编译任务数（等同于 `make -j`），默认 4 |
 
 ```bash
 # ASAN + 调试符号，快速定位内存错误
 php bin/compiler.php app.php --debug --sanitize=address
 
-# 性能分析构建
-php bin/compiler.php app.php -O2 -p
 ```
 
 ### 查看生成的 C++ 代码
@@ -346,33 +343,6 @@ $1 = true
 
 # 检查是否是预期的 Box 子类（通过类型信息）
 # Box 内部有 type_info / extra_info 字段可用于识别
-```
-
----
-
-## 性能分析
-
-### Linux: perf
-
-```bash
-# 采样
-perf record -g ./app
-
-# 交互查看
-perf report --sort=symbol
-
-# 火焰图（需从 https://github.com/brendangregg/FlameGraph 下载脚本）
-perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg
-```
-
-### 编译器内建性能分析
-
-使用 `-p` 参数启用性能探针，配合 perf 使用：
-
-```bash
-php bin/compiler.php app.php -p -O2
-perf record -g ./app
-perf report
 ```
 
 ---

@@ -63,12 +63,19 @@ php bin/compiler.php app.php --sanitize=address
 
 #### 性能相关
 
-**`-p, --profile`** — 启用性能分析。
+**`--profile`** — 启用 CPU 性能分析（基于 gperftools，仅 Linux）。
 
-在生成的二进制中插入性能分析探针，可配合 `perf` 等工具进行性能分析。
+在生成的二进制中插入性能分析探针并自动链接 `-lprofiler`，运行后生成 `{target}.prof` 数据文件。启用后自动强制重编译 misc 文件以确保编译宏生效。
 
 ```shell
-php bin/compiler.php app.php -p
+php bin/compiler.php app.php --profile
+./app                                    # 运行后生成 app.prof
+```
+
+使用编译器内置的 pprof 分析功能（默认 web 模式，自动打开浏览器）：
+
+```shell
+php bin/compiler.php app.prof
 ```
 
 **`-j, --job <num>`** — 并行编译任务数。
