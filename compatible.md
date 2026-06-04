@@ -138,3 +138,43 @@ class Thing
 {
 }
 ```
+
+## Trait 中 self 的处理
+
+在 `ZendPHP` 中，`trait` 的 `self::` 在编译时绑定到使用该 `trait` 的类（defining class）。而在 `AOT` 编译器中，`trait` 方法的 `self::` 会被当作 `static::`（延迟静态绑定）来处理，实际运行时会在被调用的类（called class）上解析。
+
+这一差异会导致 `private` 可见性的常量或方法在子类中无法访问。因为 `private` 成员不会被子类继承，当 `static::` 在子类实例上解析时，无法找到父类中 `private` 的常量或方法。
+
+**示例：**
+
+```php
+trait THello {
+    private const array CONST_ARRAY = [
+        'test_fn_1' => ['toInt' => 123],
+    ];
+
+    public function run(string $key1) {
+        var_dump(self::CONST_ARRAY[$key1]);
+    }
+}
+
+class TraitsTest {
+    use THello;
+}
+
+class Test extends TraitsTest {
+    function hello2() {
+        $this->run('test_fn_1');  // self:: 被当作 static:: 处理
+                                  // CONST_ARRAY 是 private，Test 未继承
+                                  // 导致常量读取失败
+    }
+}
+```
+
+**解决方案：** 将 `trait` 中需要被子类继承访问的常量或方法的可见性从 `private` 修改为 `protected` 或 `public`。
+
+```php
+trait THello {
+    protected const array CONST_ARRAY = [ /* ... */ ];
+}
+```
