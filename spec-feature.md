@@ -191,17 +191,42 @@ $obj = objval($var, 'TestObjval');
 $obj = objval($var, $someClass);
 ```
 
-## refval($variable)
-在动态调用中将值传递修改为引用传递。**`refval()` 仅接受变量（Variable），不能传入表达式**。例如下面的代码：
+## refval($value)
+
+在动态调用中将值传递修改为引用传递。`refval()` 接受**变量**、**数组元素**或**对象属性**作为参数，不能传入表达式。
+
+**变量引用：**
 
 ```php
 eval('function retval_test(&$name) { $name .= "refval test"; }');
 
 $name = 'php ';
 retval_test(refval($name));
+echo $name; // 输出：php refval test
 ```
 
-`eval()` 是一个运行时执行指令的函数，它动态生成了一个`retval_test`函数。由于在静态编译阶段，根本不存在`retval_test`函数，因此编译器无法将它的参数识别为引用传递，这时就需要`refval()`函数显式地将`$name`转为引用传递。
+**数组元素引用：**
+
+```php
+eval('function array_ref_test(&$val) { $val = "modified"; }');
+
+$arr = ['key' => 'original'];
+array_ref_test(refval($arr['key']));
+echo $arr['key']; // 输出：modified
+```
+
+**对象属性引用：**
+
+```php
+eval('function prop_ref_test(&$val) { $val = "modified"; }');
+
+$obj = new stdClass();
+$obj->prop = 'original';
+prop_ref_test(refval($obj->prop));
+echo $obj->prop; // 输出：modified
+```
+
+`eval()` 是一个运行时执行指令的函数，它动态生成了函数。由于在静态编译阶段，编译器无法获知这些动态函数的参数类型，因此无法自动识别引用传递参数，这时就需要 `refval()` 函数显式地将值转为引用传递。
 
 以下用法是**错误**的：
 
