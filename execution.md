@@ -1,219 +1,88 @@
-## ZendVM 的执行方式
+## 执行过程概述
 
-ZendVM 是 PHP 官方的参考实现，采用"解析—编译—解释执行"的经典虚拟机架构。每次请求到达时，ZendVM 重新执行完整的编译-执行流程。
+`AOT` 编译将 `PHP` 代码**离线翻译为 `C++` 源码**，再经 `gcc`/`clang`/`msvc` 编译为原生机器码。编译产物的运行时执行与传统 PHP（逐请求解析 → 编译 → 解释）截然不同——机器码直接在 CPU 上执行，无需经过 ZendVM 的 Opcode 解释循环。
 
-### 整体执行流程
+在实际执行中，一个 `AOT` 编译后的程序会运行在一个**混合执行环境**中。
+静态编译的用户代码以原生机器指令执行，但与 PHP 生态的深度交互（内置函数、扩展、动态加载）仍然依赖 `Zend Engine` 运行时。
+因此，`AOT` 程序的执行并非"全静态"，而是三种执行方式协同工作的结果：
 
 ```mermaid
 graph TD
-    Z0["📁 PHP 源代码<br/>（.php 文件）"] --> Z1
-    Z0 --> Z2["Opcode 缓存<br/>（OPcache）"]
-    Z2 -.->|"命中"| Z4
+    A["⚡ AOT 编译产物<br/>（原生机器码）"] --> B{"调用目标？"}
+    
+    B -->|"用户 PHP 代码<br/>（AOT 编译）"| C["<b>模式 1：静态编译执行</b><br/>直接 C/C++ 函数调用<br/>类型推断 → 原生类型运算<br/>无 zval 装箱 / 无 Opcode"]
+    
+    B -->|"PHP 内置函数<br/>C 扩展函数"| D["<b>模式 2：ZendAPI 直接调用</b><br/>zend_call_function()<br/>C/C++ 函数互调用<br/>不生成 Opcode"]
+    
+    B -->|"include / require<br/>eval / 动态定义"| E["<b>模式 3：ZendVM 解释执行</b><br/>解析 → 编译为 Opcode<br/>VM 解释循环<br/>每请求重复执行"]
 
-    subgraph Z_A["每次请求（无缓存时）"]
-        direction TB
-        Z1["1. 词法分析<br/>Re2c"] --> Z3["2. 语法分析<br/>Bison → AST"]
-        Z3 --> Z5["3. Opcode 编译<br/>AST → OPArray"]
-    end
+    C --> F["✅ 接近原生 C++ 性能"]
+    D --> G["↔️ C/C++ 函数调用开销"]
+    E --> H["⚠️ 完整的 ZendVM 开销"]
 
-    Z5 --> Z4["4. Opcode 执行<br/>zend_vm_execute.h"]
-
-    style Z0 fill:#f0f4ff
-    style Z1 fill:#fef3c7
-    style Z3 fill:#fef3c7
-    style Z5 fill:#fef3c7
-    style Z4 fill:#fde68a
+    style A fill:#0ea5e9,color:#fff
+    style C fill:#86efac
+    style D fill:#fde68a
+    style E fill:#fca5a5
+    style F fill:#bbf7d0
+    style G fill:#fef3c7
+    style H fill:#fecaca
 ```
 
-> OPcache 可以缓存阶段 1~3 的产物（Opcode 数组），避免重复解析和编译。但即使命中缓存，阶段 4 的解释执行仍然每次请求都发生。
+> **核心思想**：AOT 编译器尽可能将 PHP 代码提升为**模式 1**（原生机器码），以获取最大性能收益。无法静态编译的特性（如 `eval()`、动态类定义）回退到**模式 3**（ZendVM 解释），但这类回退在实际项目中应尽量避免。
 
-### 1. 词法分析（Lexical Analysis）
+### 1. 静态编译的用户代码
 
-将 PHP 源代码字符流拆分为 `Token`（词元）序列。
+这是 AOT 编译的核心价值所在。PHP 源码中的函数、方法、类经编译器翻译后，生成等价的 C++ 函数和 struct。运行时直接以机器指令执行，**完全不经过 ZendVM 的 Opcode 编译/解释管线**。
 
-**实现机制**：使用 `Re2c` 工具生成词法分析器 C 代码。`Re2c` 将正则规则编译为确定性有限自动机（DFA），输出的 C 代码使用 `goto` 跳转表实现高效字符匹配。生成的扫描器位于 `Zend/zend_language_scanner.c`。
+**类型处理**分为两个层次：
 
-**Token 类型**：包括标识符（`T_VARIABLE`、`T_STRING`）、字面量（`T_LNUMBER`、`T_DNUMBER`、`T_CONSTANT_ENCAPSED_STRING`）、运算符（`+`、`-`、`.`）、关键字（`if`、`while`、`class`）等。
+| 类型层次 | 启用方式 | C++ 类型 | 示例 |
+|---------|---------|---------|------|
+| 原生类型 | `use native_types` | `php::Int`、`php::Float`、`php::Bool` | `int64_t`、`double`、`bool` |
+| 动态类型 | 默认 / 未声明类型 | `php::Var`（`zval` 包装） | `php::Array`、`php::String`、`php::Object` |
 
-在用户侧可使用 `token_get_all()` 观察词法分析结果：
+启用 `use native_types` 后，`int`/`float`/`bool` 类型直接映射为 C++ 原生类型（`int64_t`、`double`、`bool`），消除 `zval` 的装箱/拆箱和类型标记检查开销。对于无法确定类型的场景，使用 `php::Var` 保留动态性。
 
 ```php
-// 源代码
-$name = "World"; echo "Hello, " . $name;
+use native_types;
 
-// token_get_all() 输出:
-[
-    [T_OPEN_TAG, "<?php ", 1],
-    [T_VARIABLE, "$name", 2],
-    "=",
-    [T_CONSTANT_ENCAPSED_STRING, '"World"', 2],
-    ";",
-    [T_ECHO, "echo", 3],
-    [T_CONSTANT_ENCAPSED_STRING, '"Hello, "', 3],
-    ".",
-    [T_VARIABLE, "$name", 3],
-    ";",
-    [T_CLOSE_TAG, "?>", 4],
-]
+function calculate(int $a, int $b): int {
+    return $a * $b + 10;   // → 直接 C++ 整数运算，无 zval 开销
+}
 ```
 
-### 2. 语法分析（Syntax Analysis）
+**调用方式**：用户函数之间的调用为直接的 C++ 函数调用，无需函数指针查找或动态分发（除非存在子类方法覆盖，编译器会尝试去虚化优化）。
 
-使用 **Bison**（LALR(1) 解析器生成器）将 Token 流转换为**抽象语法树（AST）**。
+### 2. PHP 内置函数和扩展函数
 
-**实现机制**：PHP 语法规则定义在 `Zend/zend_language_parser.y` 中。Bison 将其编译为 C 语言的 LALR(1) 解析表，生成的解析器通过移进-归约（shift-reduce）算法将 Token 序列归约为 AST 节点。每个语法规则对应一个 AST 节点构造动作。
+PHP 标准库（如 `explode()`、`array_map()`、`preg_match()`）和第三方扩展（如 `json_decode()`、`curl_init()`）由 C 语言编写，编译在 `.so` / `.dll` 扩展文件中。它们的实现在 Zend Engine 内部，不存在 AOT 可静态链接的版本。
 
-**AST 节点结构**（`Zend/zend_ast.h`）：
+调用这些函数时，AOT 编译器生成代码通过 **ZendAPI** 的 `zend_call_function()` 直接调用其底层的 C 函数指针：
 
-```c
-struct _zend_ast {
-    zend_ast_kind kind;       // 节点类型（如 ZEND_AST_ASSIGN）
-    zend_ast_attr attr;       // 属性（运算符、修饰符等）
-    uint32_t lineno;          // 源代码行号
-    zend_ast *children[1];    // 可变长子节点数组
-};
+```
+用户代码 (AOT 机器码)
+  → zend_call_function(internal_function_handler)
+    → C 扩展函数体
+      → 返回 zval 结果
 ```
 
-**AST 示例** — `$name = "World"; echo "Hello, " . $name;`：
+这相当于 **C/C++ 函数之间的互调用**，不需要生成 Opcode 字节码，也不需要启动 VM 解释循环。开销仅在于：
+- `zend_call_function()` 的函数指针查找和参数栈设置
+- 输入/输出参数的 `zval` 包装（若调用方使用原生类型，需要临时装箱）
 
-```text
-ZEND_AST_STMT_LIST
-├── ZEND_AST_ASSIGN
-│   ├── ZEND_AST_VAR (name: "name")
-│   └── ZEND_AST_ZVAL (value: "World", type: IS_STRING)
-└── ZEND_AST_ECHO
-    └── ZEND_AST_BINARY_OP (op: CONCAT)
-        ├── ZEND_AST_ZVAL (value: "Hello, ", type: IS_STRING)
-        └── ZEND_AST_VAR (name: "name")
-```
+### 3. 动态加载的代码
 
-### 3. Opcode 编译（AST → OPArray）
+部分 PHP 特性无法在编译期静态处理，必须在运行时动态编译执行：
 
-遍历 AST 生成 **OPArray**——操作码数组及关联的运行时数据。
+- `include()` / `require()` — 动态加载 PHP 文件
+- `eval()` — 运行时执行字符串中的 PHP 代码
+- `create_function()` — 动态创建匿名函数
+- 动态类定义、动态方法添加
 
-**实现机制**：编译器位于 `Zend/zend_compile.c`，通过递归下降遍历 AST，每个 AST 节点类型对应一个 `zend_compile_*()` 函数。生成的 Opcode 是 ZendVM 的"字节码"——每个 Opcode 包含操作码和操作数。
+这些代码在**运行时**由 ZendVM 重新执行完整的"解析 → 编译 → 解释"管线，产生 Opcode 字节码并通过 VM 解释循环执行。其执行效率与标准 PHP 中的动态代码完全一致。
 
-**OPArray 结构**（`Zend/zend_compile.h`）：
-
-```c
-struct _zend_op_array {
-    zend_op *opcodes;              // Opcode 序列
-    zval *literals;                // 字面量数组（字符串、数字等）
-    int last;                      // Opcode 数量
-    // ... 变量槽位、临时变量、异常表等
-};
-
-struct _zend_op {
-    const void *handler;           // 执行时填充：对应的 handler 函数指针
-    znode_op op1, op2, result;     // 操作数和结果（寄存器/常量/跳转偏移）
-    uint32_t lineno;               // 对应源代码行号
-    uint8_t opcode;                // 操作码（如 ZEND_ASSIGN、ZEND_ECHO）
-};
-```
-
-**示例** — `$a = 3 + $b;` 编译为：
-
-```text
-OPArray:
-  [0] ZEND_ADD      CV($b)  CONST(3)  TMP_VAR($0)
-  [1] ZEND_ASSIGN   CV($a)  TMP_VAR($0)
-```
-
-| Opcode | 说明 | op1 | op2 | result |
-|--------|------|-----|-----|--------|
-| `ZEND_ADD` | 加法运算 | `CV($b)` — 编译变量 | `CONST(3)` — 常量 3 | `TMP_VAR` — 临时寄存器 |
-| `ZEND_ASSIGN` | 赋值 | `CV($a)` — 目标变量 | `TMP_VAR` — 源临时值 | — |
-
-ZendVM 使用**虚拟寄存器**模型：`CV`（Compiled Variable）映射到调用帧的变量槽，`TMP_VAR` 是临时寄存器，`CONST` 引用字面量池。
-
-**OPcache 的作用**：OPcache 将编译产出的 OPArray 缓存到共享内存中。命中缓存时，阶段 1~3 被完全跳过——这是 ZendVM 最重要的性能优化。但请注意，OPcache 只缓存编译结果，执行阶段仍然每次发生。
-
-### 4. Opcode 执行（VM 解释循环）
-
-ZendVM 核心执行器加载 OPArray 并逐条执行 Opcode。
-
-**实现机制**：执行器位于 `Zend/zend_vm_execute.h`。这是一个巨大的 `while` 或 `goto` 分发循环，每个 Opcode 对应一个 `C 函数` 或内联 `handler`。CPU 从 OPArray 中取指、通过 handler 函数指针间接跳转、解码操作数、执行语义、写入结果、推进指令指针，循环往复。
-
-```mermaid
-graph TD
-    E0["OPArray<br/>（Opcode 序列）"] --> E1["取指<br/>读取下一条 Opcode"]
-    E1 --> E2["解码<br/>解析 op1 / op2 / result"]
-    E2 --> E3["通过 handler 函数指针分发"]
-    E3 --> E4{"Opcode 类型"}
-    E4 -->|"ZEND_ASSIGN"| E5["复制值到变量槽"]
-    E4 -->|"ZEND_ADD"| E6["取出操作数，执行加法<br/>结果写入临时寄存器"]
-    E4 -->|"ZEND_ECHO"| E7["将值转为字符串输出"]
-    E4 -->|"ZEND_JMP"| E8["修改指令指针实现跳转"]
-    E4 -->|"ZEND_RETURN"| E9["返回，结束当前帧"]
-    E5 --> E10{"还有下一条?"}
-    E6 --> E10
-    E7 --> E10
-    E8 --> E1
-    E10 -->|是| E1
-    E10 -->|否| E9
-
-    style E0 fill:#fef3c7
-    style E3 fill:#fde68a
-    style E9 fill:#86efac
-```
-
-**执行开销分析**：每条 Opcode 执行时，CPU 必须完成：
-1. 间接跳转（handler 函数指针调用）
-2. 操作数解码（区分 CV / TMP / CONST 类型）
-3. 类型检查（`zval` 的类型标记，决定实际运算逻辑）
-4. 引用计数管理（`zval` 的 `refcount` 增减）
-5. 运算执行
-6. 下一条 Opcode 取指
-
-`zval` 的装箱/拆箱和类型标记检查是主要开销来源。即使最简单的 `$a + $b`，ZendVM 也需要检查两个操作数的类型、处理类型转换、分配临时 `zval` 存储结果。
-
-```mermaid
-graph LR
-    subgraph ZVM_OVERHEAD["ZendVM 单条 Opcode 开销"]
-        direction TB
-        V1["间接跳转<br/>handler 指针"] --> V2["操作数解码<br/>CV / TMP / CONST"]
-        V2 --> V3["类型检查<br/>zval.u1.type_info"]
-        V3 --> V4["引用计数<br/>GC_ADDREF / GC_DELREF"]
-        V4 --> V5["运算执行"]
-    end
-
-    V5 --> V6["下一条 Opcode"]
-
-    style V1 fill:#fef3c7
-    style V2 fill:#fef3c7
-    style V3 fill:#fed7aa
-    style V4 fill:#fed7aa
-    style V5 fill:#d9f99d
-```
-
-### ZendVM 完整流程总结
-
-```mermaid
-graph TD
-    SRC["📁 PHP 源文件"] --> LEX["1. 词法分析<br/>Re2c → Token 流"]
-    LEX --> PARSE["2. 语法分析<br/>Bison → AST"]
-    PARSE --> COMPILE["3. Opcode 编译<br/>AST → OPArray"]
-    COMPILE --> EXEC["4. Opcode 执行<br/>VM 解释循环"]
-
-    EXEC -->|"函数调用"| PARSE2["动态编译<br/>（include / eval）"]
-    PARSE2 --> COMPILE2["OPArray"]
-    COMPILE2 --> EXEC
-
-    CACHE["OPcache<br/>共享内存"] -.->|"缓存命中"| EXEC
-
-    style SRC fill:#f0f4ff
-    style LEX fill:#fef3c7
-    style PARSE fill:#fef3c7
-    style COMPILE fill:#fef3c7
-    style EXEC fill:#fde68a
-    style CACHE fill:#d9f99d
-```
-
-关键点：
-- **无 OPcache 时**：每次请求执行完整的"解析 → 编译 → 执行"管线
-- **有 OPcache 时**：跳过解析和编译，但仍需执行 Opcode 解释循环
-- **动态特性支持**：`include`、`eval`、`create_function()` 等可在运行时触发新的编译
-- **`zval` 开销**：所有值（包括整数、浮点）都装箱在 `zval` 结构体中，每条 Opcode 都涉及类型检查和引用计数
+> **注意**：过度依赖 `include`/`eval` 会稀释 AOT 编译的性能收益。最佳实践是将核心业务逻辑放在静态编译文件中，仅将配置加载、路由分发等必要场景留给动态加载。
 
 ## AOT 编译器的执行方式
 
@@ -478,6 +347,223 @@ graph TD
 |---------|-----------------|-------------|
 | `bin` | 可执行文件（ELF/Mach-O） | `.exe`（PE） |
 | `ext` | `.so` / `.dylib` | `.dll` |
+
+## ZendVM 的执行方式
+
+`ZendVM` 是 `PHP` 官方的参考实现，采用"解析—编译—解释执行"的经典虚拟机架构。每次请求到达时，`ZendVM` 重新执行完整的编译-执行流程。
+
+### 整体执行流程
+
+```mermaid
+graph TD
+    Z0["📁 PHP 源代码<br/>（.php 文件）"] --> Z1
+    Z0 --> Z2["Opcode 缓存<br/>（OPcache）"]
+    Z2 -.->|"命中"| Z4
+
+    subgraph Z_A["每次请求（无缓存时）"]
+        direction TB
+        Z1["1. 词法分析<br/>Re2c"] --> Z3["2. 语法分析<br/>Bison → AST"]
+        Z3 --> Z5["3. Opcode 编译<br/>AST → OPArray"]
+    end
+
+    Z5 --> Z4["4. Opcode 执行<br/>zend_vm_execute.h"]
+
+    style Z0 fill:#f0f4ff
+    style Z1 fill:#fef3c7
+    style Z3 fill:#fef3c7
+    style Z5 fill:#fef3c7
+    style Z4 fill:#fde68a
+```
+
+> OPcache 可以缓存阶段 1~3 的产物（Opcode 数组），避免重复解析和编译。但即使命中缓存，阶段 4 的解释执行仍然每次请求都发生。
+
+### 1. 词法分析（Lexical Analysis）
+
+将 PHP 源代码字符流拆分为 `Token`（词元）序列。
+
+**实现机制**：使用 `Re2c` 工具生成词法分析器 C 代码。`Re2c` 将正则规则编译为确定性有限自动机（DFA），输出的 C 代码使用 `goto` 跳转表实现高效字符匹配。生成的扫描器位于 `Zend/zend_language_scanner.c`。
+
+**Token 类型**：包括标识符（`T_VARIABLE`、`T_STRING`）、字面量（`T_LNUMBER`、`T_DNUMBER`、`T_CONSTANT_ENCAPSED_STRING`）、运算符（`+`、`-`、`.`）、关键字（`if`、`while`、`class`）等。
+
+在用户侧可使用 `token_get_all()` 观察词法分析结果：
+
+```php
+// 源代码
+$name = "World"; echo "Hello, " . $name;
+
+// token_get_all() 输出:
+[
+    [T_OPEN_TAG, "<?php ", 1],
+    [T_VARIABLE, "$name", 2],
+    "=",
+    [T_CONSTANT_ENCAPSED_STRING, '"World"', 2],
+    ";",
+    [T_ECHO, "echo", 3],
+    [T_CONSTANT_ENCAPSED_STRING, '"Hello, "', 3],
+    ".",
+    [T_VARIABLE, "$name", 3],
+    ";",
+    [T_CLOSE_TAG, "?>", 4],
+]
+```
+
+### 2. 语法分析（Syntax Analysis）
+
+使用 **Bison**（LALR(1) 解析器生成器）将 Token 流转换为**抽象语法树（AST）**。
+
+**实现机制**：PHP 语法规则定义在 `Zend/zend_language_parser.y` 中。Bison 将其编译为 C 语言的 LALR(1) 解析表，生成的解析器通过移进-归约（shift-reduce）算法将 Token 序列归约为 AST 节点。每个语法规则对应一个 AST 节点构造动作。
+
+**AST 节点结构**（`Zend/zend_ast.h`）：
+
+```c
+struct _zend_ast {
+    zend_ast_kind kind;       // 节点类型（如 ZEND_AST_ASSIGN）
+    zend_ast_attr attr;       // 属性（运算符、修饰符等）
+    uint32_t lineno;          // 源代码行号
+    zend_ast *children[1];    // 可变长子节点数组
+};
+```
+
+**AST 示例** — `$name = "World"; echo "Hello, " . $name;`：
+
+```text
+ZEND_AST_STMT_LIST
+├── ZEND_AST_ASSIGN
+│   ├── ZEND_AST_VAR (name: "name")
+│   └── ZEND_AST_ZVAL (value: "World", type: IS_STRING)
+└── ZEND_AST_ECHO
+    └── ZEND_AST_BINARY_OP (op: CONCAT)
+        ├── ZEND_AST_ZVAL (value: "Hello, ", type: IS_STRING)
+        └── ZEND_AST_VAR (name: "name")
+```
+
+### 3. Opcode 编译（AST → OPArray）
+
+遍历 AST 生成 **OPArray**——操作码数组及关联的运行时数据。
+
+**实现机制**：编译器位于 `Zend/zend_compile.c`，通过递归下降遍历 AST，每个 AST 节点类型对应一个 `zend_compile_*()` 函数。生成的 Opcode 是 ZendVM 的"字节码"——每个 Opcode 包含操作码和操作数。
+
+**OPArray 结构**（`Zend/zend_compile.h`）：
+
+```c
+struct _zend_op_array {
+    zend_op *opcodes;              // Opcode 序列
+    zval *literals;                // 字面量数组（字符串、数字等）
+    int last;                      // Opcode 数量
+    // ... 变量槽位、临时变量、异常表等
+};
+
+struct _zend_op {
+    const void *handler;           // 执行时填充：对应的 handler 函数指针
+    znode_op op1, op2, result;     // 操作数和结果（寄存器/常量/跳转偏移）
+    uint32_t lineno;               // 对应源代码行号
+    uint8_t opcode;                // 操作码（如 ZEND_ASSIGN、ZEND_ECHO）
+};
+```
+
+**示例** — `$a = 3 + $b;` 编译为：
+
+```text
+OPArray:
+  [0] ZEND_ADD      CV($b)  CONST(3)  TMP_VAR($0)
+  [1] ZEND_ASSIGN   CV($a)  TMP_VAR($0)
+```
+
+| Opcode | 说明 | op1 | op2 | result |
+|--------|------|-----|-----|--------|
+| `ZEND_ADD` | 加法运算 | `CV($b)` — 编译变量 | `CONST(3)` — 常量 3 | `TMP_VAR` — 临时寄存器 |
+| `ZEND_ASSIGN` | 赋值 | `CV($a)` — 目标变量 | `TMP_VAR` — 源临时值 | — |
+
+ZendVM 使用**虚拟寄存器**模型：`CV`（Compiled Variable）映射到调用帧的变量槽，`TMP_VAR` 是临时寄存器，`CONST` 引用字面量池。
+
+**OPcache 的作用**：OPcache 将编译产出的 OPArray 缓存到共享内存中。命中缓存时，阶段 1~3 被完全跳过——这是 ZendVM 最重要的性能优化。但请注意，OPcache 只缓存编译结果，执行阶段仍然每次发生。
+
+### 4. Opcode 执行（VM 解释循环）
+
+ZendVM 核心执行器加载 OPArray 并逐条执行 Opcode。
+
+**实现机制**：执行器位于 `Zend/zend_vm_execute.h`。这是一个巨大的 `while` 或 `goto` 分发循环，每个 Opcode 对应一个 `C 函数` 或内联 `handler`。CPU 从 OPArray 中取指、通过 handler 函数指针间接跳转、解码操作数、执行语义、写入结果、推进指令指针，循环往复。
+
+```mermaid
+graph TD
+    E0["OPArray<br/>（Opcode 序列）"] --> E1["取指<br/>读取下一条 Opcode"]
+    E1 --> E2["解码<br/>解析 op1 / op2 / result"]
+    E2 --> E3["通过 handler 函数指针分发"]
+    E3 --> E4{"Opcode 类型"}
+    E4 -->|"ZEND_ASSIGN"| E5["复制值到变量槽"]
+    E4 -->|"ZEND_ADD"| E6["取出操作数，执行加法<br/>结果写入临时寄存器"]
+    E4 -->|"ZEND_ECHO"| E7["将值转为字符串输出"]
+    E4 -->|"ZEND_JMP"| E8["修改指令指针实现跳转"]
+    E4 -->|"ZEND_RETURN"| E9["返回，结束当前帧"]
+    E5 --> E10{"还有下一条?"}
+    E6 --> E10
+    E7 --> E10
+    E8 --> E1
+    E10 -->|是| E1
+    E10 -->|否| E9
+
+    style E0 fill:#fef3c7
+    style E3 fill:#fde68a
+    style E9 fill:#86efac
+```
+
+**执行开销分析**：每条 Opcode 执行时，CPU 必须完成：
+1. 间接跳转（handler 函数指针调用）
+2. 操作数解码（区分 CV / TMP / CONST 类型）
+3. 类型检查（`zval` 的类型标记，决定实际运算逻辑）
+4. 引用计数管理（`zval` 的 `refcount` 增减）
+5. 运算执行
+6. 下一条 Opcode 取指
+
+`zval` 的装箱/拆箱和类型标记检查是主要开销来源。即使最简单的 `$a + $b`，ZendVM 也需要检查两个操作数的类型、处理类型转换、分配临时 `zval` 存储结果。
+
+```mermaid
+graph LR
+    subgraph ZVM_OVERHEAD["ZendVM 单条 Opcode 开销"]
+        direction TB
+        V1["间接跳转<br/>handler 指针"] --> V2["操作数解码<br/>CV / TMP / CONST"]
+        V2 --> V3["类型检查<br/>zval.u1.type_info"]
+        V3 --> V4["引用计数<br/>GC_ADDREF / GC_DELREF"]
+        V4 --> V5["运算执行"]
+    end
+
+    V5 --> V6["下一条 Opcode"]
+
+    style V1 fill:#fef3c7
+    style V2 fill:#fef3c7
+    style V3 fill:#fed7aa
+    style V4 fill:#fed7aa
+    style V5 fill:#d9f99d
+```
+
+### ZendVM 完整流程总结
+
+```mermaid
+graph TD
+    SRC["📁 PHP 源文件"] --> LEX["1. 词法分析<br/>Re2c → Token 流"]
+    LEX --> PARSE["2. 语法分析<br/>Bison → AST"]
+    PARSE --> COMPILE["3. Opcode 编译<br/>AST → OPArray"]
+    COMPILE --> EXEC["4. Opcode 执行<br/>VM 解释循环"]
+
+    EXEC -->|"函数调用"| PARSE2["动态编译<br/>（include / eval）"]
+    PARSE2 --> COMPILE2["OPArray"]
+    COMPILE2 --> EXEC
+
+    CACHE["OPcache<br/>共享内存"] -.->|"缓存命中"| EXEC
+
+    style SRC fill:#f0f4ff
+    style LEX fill:#fef3c7
+    style PARSE fill:#fef3c7
+    style COMPILE fill:#fef3c7
+    style EXEC fill:#fde68a
+    style CACHE fill:#d9f99d
+```
+
+关键点：
+- **无 OPcache 时**：每次请求执行完整的"解析 → 编译 → 执行"管线
+- **有 OPcache 时**：跳过解析和编译，但仍需执行 Opcode 解释循环
+- **动态特性支持**：`include`、`eval`、`create_function()` 等可在运行时触发新的编译
+- **`zval` 开销**：所有值（包括整数、浮点）都装箱在 `zval` 结构体中，每条 Opcode 都涉及类型检查和引用计数
 
 ## ZendVM vs AOT 编译器对比
 
