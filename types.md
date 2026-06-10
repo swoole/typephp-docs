@@ -370,7 +370,42 @@ PHP 的联合类型（`int|float`、`int|string` 等）在编译时退化为 `ph
 
 原生类型变量（`php::Int`、`php::Float` 等）不能使用 `unset()`，因为它们在 C++ 中是栈上值类型。
 
-### 7.10 关闭原生类型以启用特定行为
+### 7.10 对象属性类型固定，固定值类型不能 unset 或改成 null
+
+AOT 编译器要求对象属性始终保持声明时的类型，不能在运行过程中改成其他类型。
+
+```php
+declare(strict_types=1);
+use native_types;
+
+class User {
+    public int $id = 0;
+    public Profile $profile;
+}
+
+$user = new User();
+unset($user->id); // ❌ 不允许依赖 PHP 的属性 unset 语义
+$user->id = null; // ❌ 固定值类型属性不能改成 null
+
+unset($user->profile); // ✅ 对象属性可进入 null/unset 状态
+$user->profile = null; // ✅ 对象属性可显式设置为 null
+```
+
+在 PHP 解释器中，`unset($obj->prop)` 可以让属性进入未初始化状态；对固定值类型属性赋值 `null` 也会把属性改成空值。从 AOT 的类型系统看，这等价于把属性从声明的 `int`、`float`、`bool`、`string`、`array` 改成 `null`/未初始化状态。AOT 不允许这些固定值类型属性改变类型，因此属性永远是声明时的类型。
+
+具体类对象属性使用更严格的对象类型规则：`public MyClass $object` 可以被 `unset()` 或设置为 `null`；但再次赋值对象时，运行时对象类型必须是 `MyClass` 本身。与 PHP 不同，AOT 不允许把子类对象赋给基类属性。
+
+如果业务上需要“没有值”的状态，应显式使用可空类型并赋值：
+
+```php
+class User {
+    public ?int $id = null;
+}
+
+$user->id = null; // ✅ 类型声明中允许 null
+```
+
+### 7.11 关闭原生类型以启用特定行为
 
 需要溢出检测、动态类型赋值等动态特性时，不应使用 `use native_types`，或使用 `any()` 将变量标注为 `php::Var`：
 

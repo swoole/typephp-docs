@@ -55,6 +55,60 @@ $o = new ArrayObject;
 ```bash
 Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
 ```
+
+对象属性同样遵循更严格的静态类型规则，但不同属性类型的 `unset`/`null` 语义不同。
+
+### 固定值类型属性
+
+`int`、`float`、`bool`、`string`、`array` 这 5 种属性会被 `AOT` 编译器当作固定值类型优化。属性槽位始终保持声明类型，不允许通过 `unset()` 或赋值 `null` 将其改成未初始化或空值状态。
+
+```php
+class User {
+    public int $id = 0;
+    public array $roles = [];
+}
+
+$user = new User();
+unset($user->id);   // AOT 不允许依赖 PHP 的属性 unset 语义
+$user->roles = null; // AOT 不允许把 array 属性改成 null
+```
+
+在 `ZendPHP` 中，`unset($obj->prop)` 可以让属性进入未初始化状态；在 `AOT` 编译器中，这等价于改变固定值类型属性的类型，因此不允许。若业务上需要空值语义，应显式声明为可空类型，例如 `public ?int $id = null;`。
+
+### 具体对象类型属性
+
+具体类对象属性可以被 `unset()`，也可以设置为 `null`：
+
+```php
+class Profile {}
+
+class User {
+    public Profile $profile;
+}
+
+$user = new User();
+$user->profile = new Profile();
+$user->profile = null;  // 允许
+unset($user->profile);  // 允许
+```
+
+但是非空对象赋值时，`AOT` 要求对象的实际类型与属性声明的类完全一致。与 `ZendPHP` 不同，不能将子类对象赋值给基类属性。
+
+```php
+class Base {}
+class Child extends Base {}
+
+class Holder {
+    public Base $object;
+}
+
+$holder = new Holder();
+$holder->object = new Base();  // 允许
+$holder->object = new Child(); // AOT 不允许，必须精确匹配 Base
+```
+
+这类代码在 `ZendPHP` 中是合法的，因为 PHP 的对象类型检查允许子类兼容父类；但 `AOT` 编译器为了保持对象属性布局和方法调用优化的确定性，要求具体对象属性的非空赋值必须使用声明类本身。
+
 ## 严格模式
 `AOT` 编译器不允许手动设置当前文件为非严格模式：`declare(strict_types=0)`，这会导致编译错误：
 
