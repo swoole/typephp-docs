@@ -112,6 +112,22 @@ php bin/compiler.php app.php -f
 php bin/compiler.php app.php --cxx-std=c++20
 ```
 
+**`-b, --build-dir <dir>`** — 指定构建目录。
+
+设置生成的 C++ 代码（`.cc`）、头文件、目标文件（`.o`）等构建中间产物的存放目录。默认目录为 `<项目根>/build`。
+
+```shell
+php bin/compiler.php app.php -b /tmp/mybuild
+```
+
+**`--dry`** — 干运行模式。
+
+仅执行 PHP → C++ 代码的转译步骤，生成所有 C++ 源文件，但**不执行**编译和链接。适用于仅需审查生成的 C++ 代码或预先检查转译结果的场景。
+
+```shell
+php bin/compiler.php app.php --dry
+```
+
 **`--no-console`** — 隐藏控制台窗口（仅 Windows）。
 
 Windows 平台下，使用 `/SUBSYSTEM:WINDOWS` 链接，程序启动时不显示控制台窗口，适用于 GUI 应用程序。
@@ -149,6 +165,9 @@ ignore:
   - src/vendor/
   - ext-gd          # 忽略特定扩展依赖
 
+# 构建目录（生成的 C++ 代码存放位置，也可用 -b 参数）
+build-dir: /path/to/custom/build
+
 # C++ 标准版本
 cxx-std: c++17
 
@@ -178,6 +197,7 @@ resource:
 | `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）和 `ext`/`extension`（扩展） |
 | `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm` |
 | `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
+| `build-dir` / `build_dir` | `string` | 构建目录，等价于 `-b`。设置生成的 C++ 代码和中间文件的存放目录 |
 | `cxx-std` / `cxx_std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
 | `cpp-compiler` / `cpp_compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
 | `cxx-flags` / `cxxflags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
