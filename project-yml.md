@@ -58,6 +58,16 @@ lto: true
 # 启用 clang-format 代码格式化
 format: true
 
+# 要链接的库（等价于 -l）
+link-libs:
+  - curl
+  - ssl
+
+# 库搜索路径（等价于 -L）
+link-paths:
+  - /usr/local/lib
+  - /opt/custom/lib
+
 # Windows 资源配置（仅 Windows 平台）
 resource:
   icon: assets/app.ico
@@ -80,6 +90,8 @@ resource:
 | `defines` | `array` | 预处理器宏定义，等价于 `-D`。每项为 `name=value` 格式 |
 | `lto` | `boolean` | 启用链接时优化，等价于 `--lto` |
 | `format` | `boolean` | 启用 clang-format 格式化，等价于 `--format` |
+| `link-libs` / `link_libs` | `array` | 要链接的库，等价于 `-l`。每项为库名（不含 `lib` 前缀和 `.so`/`.a` 后缀） |
+| `link-paths` / `link_paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
 
 ## 优先级

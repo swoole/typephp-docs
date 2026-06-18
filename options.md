@@ -136,6 +136,30 @@ php bin/compiler.php app.php -O2 --lto
 php bin/compiler.php app.php --format
 ```
 
+### `-l <lib>, --link-lib <lib>` — 链接库（可重复）
+
+指定要链接的库，等价于 GCC 的 `-l<lib>`。实际传递给链接器的标志为 `-l<lib>`。允许多次指定以链接多个库。
+
+```shell
+# 链接多个库
+php bin/compiler.php app.php -lcurl -lssl -lcrypto -O2
+
+# 长格式等价写法
+php bin/compiler.php app.php --link-lib curl --link-lib ssl --link-lib crypto
+```
+
+### `-L <dir>, --link-path <dir>` — 库搜索路径（可重复）
+
+添加库文件的搜索路径，等价于 GCC 的 `-L<dir>`。实际传递给链接器的标志为 `-L<dir>`。用于链接非标准路径下的库文件。
+
+```shell
+# 添加库搜索路径并链接
+php bin/compiler.php app.php -L/usr/local/lib -L/opt/custom/lib -lmycustom -O2
+
+# 长格式等价写法
+php bin/compiler.php app.php --link-path /usr/local/lib --link-path /opt/custom/lib
+```
+
 ### `-f, --force` — 强制重新编译
 
 即使存在编译缓存也强制重新编译所有文件。
