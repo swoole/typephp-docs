@@ -116,6 +116,45 @@ php bin/compiler.php app.php -D ENABLE_LOGGING=1 -D DEBUG_LEVEL=3 -O2
 php bin/compiler.php app.php --define ENABLE_LOGGING=1 --define DEBUG_LEVEL=3
 ```
 
+### `--march <arch>` — 目标 CPU 指令集
+
+指定生成代码的目标 CPU 指令集，等价于 GCC 的 `-march=<arch>`。
+
+常用：
+  - `native` — 自动优化为当前 CPU
+  - `x86-64-v3` / `x86-64-v4` — x86-64 微架构级别
+  - `armv8-a` / `armv9-a` — ARM 架构
+
+```shell
+# 优化当前机器
+php bin/compiler.php app.php --march=native -O2
+
+# 指定目标架构
+php bin/compiler.php app.php --march=x86-64-v3 -O2
+```
+
+> 仅适用 GCC/Clang，MSVC 请使用 `--cxx-flags`。
+
+### `--target-platform <triple>` — 交叉编译目标平台
+
+交叉编译，在编译和链接命令中追加 `--target=<triple>` 标志。适用于生成与当前主机不同架构/平台的二进制文件。
+
+常用目标三元组示例：
+  - `aarch64-linux-gnu` — ARM64 Linux
+  - `x86_64-w64-mingw32` — Windows x86-64 (MinGW)
+  - `arm-linux-gnueabihf` — ARM32 Linux (hard float)
+
+```shell
+# 在 x86-64 主机上编译 ARM64 Linux 二进制
+php bin/compiler.php app.php --target-platform aarch64-linux-gnu -O2
+
+# 交叉编译到 Windows (MinGW)
+php bin/compiler.php app.php --target-platform x86_64-w64-mingw32 -O2
+```
+
+> **注意**：GCC 交叉编译通常还需要安装对应的交叉编译工具链（如 `g++-aarch64-linux-gnu`）。Clang 自带交叉编译支持，只需指定 `--target` 即可。可通过 YAML 配置 `cpp-compiler` 指定交叉编译器路径。
+
+
 ### `--lto` — 链接时优化（Link Time Optimization）
 
 允许编译器在链接阶段跨编译单元进行优化，配合 `-O2`/`-O3` 可进一步提升运行时性能和减小二进制体积。编译器自动适配：GCC/Clang 使用 `-flto`，MSVC 使用 `/GL` + `/LTCG`。
@@ -198,6 +237,15 @@ Windows 平台下，使用 `/SUBSYSTEM:WINDOWS` 链接，程序启动时不显�
 
 ```shell
 php bin/compiler.php gui-app.php --no-console
+```
+
+
+### `--no-color` — 禁用 ANSI 彩色输出
+
+禁用终端的 ANSI 颜色转义序列，所有输出为纯文本。适用于日志重定向、不支持颜色的终端环境或 CI/CD 管道。
+
+```shell
+php bin/compiler.php app.php --no-color -O2
 ```
 
 ### `-v, --version` — 显示版本信息

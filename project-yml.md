@@ -83,6 +83,7 @@ resource:
 | `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
 | `build-dir` | `string` | 构建目录，等价于 `--build-dir`。设置生成的 C++ 代码和中间文件的存放目录 |
 | `cxx-std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
+| `march` | `string` | 目标 CPU 指令集（如 `native`, `x86-64-v3`），等价于 `--march` |
 | `cpp-compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
 | `cxx-flags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
 | `ld-flags` | `string` 或 `array` | 额外的链接选项，会追加到链接命令中 |
