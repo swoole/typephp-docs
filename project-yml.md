@@ -81,17 +81,17 @@ resource:
 | `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）和 `ext`/`extension`（扩展） |
 | `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm` |
 | `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
-| `build-dir` / `build_dir` | `string` | 构建目录，等价于 `--build-dir`。设置生成的 C++ 代码和中间文件的存放目录 |
-| `cxx-std` / `cxx_std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
-| `cpp-compiler` / `cpp_compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
-| `cxx-flags` / `cxxflags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
-| `ld-flags` / `ldflags` | `string` 或 `array` | 额外的链接选项，会追加到链接命令中 |
-| `include-paths` / `include_paths` | `array` | 额外的 C++ 头文件搜索目录，等价于 `-I` |
+| `build-dir` | `string` | 构建目录，等价于 `--build-dir`。设置生成的 C++ 代码和中间文件的存放目录 |
+| `cxx-std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
+| `cpp-compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
+| `cxx-flags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
+| `ld-flags` | `string` 或 `array` | 额外的链接选项，会追加到链接命令中 |
+| `include-paths` | `array` | 额外的 C++ 头文件搜索目录，等价于 `-I` |
 | `defines` | `array` | 预处理器宏定义，等价于 `-D`。每项为 `name=value` 格式 |
 | `lto` | `boolean` | 启用链接时优化，等价于 `--lto` |
 | `format` | `boolean` | 启用 clang-format 格式化，等价于 `--format` |
-| `link-libs` / `link_libs` | `array` | 要链接的库，等价于 `-l`。每项为库名（不含 `lib` 前缀和 `.so`/`.a` 后缀） |
-| `link-paths` / `link_paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
+| `link-libs` | `array` | 要链接的库，等价于 `-l`。每项为库名（不含 `lib` 前缀和 `.so`/`.a` 后缀） |
+| `link-paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
 
 ## 优先级
