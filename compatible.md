@@ -1,16 +1,15 @@
-## 语法兼容性
+## 不支持的语法
 
 `AOT`编译器支持绝大部分`PHP`的语法。不过由于`AOT`是静态编译，某些依赖运行时确定的特性是无法支持的：
 
 1. 不支持 `$$` 语法，局部变量为编译器符号，无法在运行时使用
 2. 不支持 `extract` 函数，无法运行时创建局部变量
 3. 不支持 `yield`/`generator` 生成器语法，建议使用`fiber/swoole/swow`协程，`AOT`编译器支持协程
-4. 不支持多层 `break` 或者 `continue` 语法，需要改成 `goto` 或 `try/catch`，这个特性只能在虚拟机模式中实现
-5. 禁止字面量字符串包含`\0`，例如`$a = "hello \0 world;"`，与`C++`不兼容
-6. 不支持参数数量不匹配的函数调用，例如某个函数的参数是`3`个，但是实际运行的代码传入了`4`个，这在`PHP`动态执行阶段是允许的，但是`AOT`编译器无法支持
-7. 不支持 `Property Hook` 语法
-8. 不支持动态调用中使用引用，例如`Closure`闭包函数的参数是引用类型，在运行时才能确定，在`AOT`编译器中不支持，需要显式使用`refval()`函数转为引用
-9. 所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许
+4. 禁止字面量字符串包含`\0`，例如`$a = "hello \0 world;"`，与`C++`不兼容
+5. 不支持参数数量不匹配的函数调用，例如某个函数的参数是`3`个，但是实际运行的代码传入了`4`个，这在`PHP`动态执行阶段是允许的，但是`AOT`编译器无法支持
+6. 不支持 `Property Hook` 语法
+7. 不支持动态调用中使用引用，例如`Closure`闭包函数的参数是引用类型，在运行时才能确定，在`AOT`编译器中不支持，需要显式使用`refval()`函数转为引用
+8. 所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许
 
 ```php
 // 运行时才能得到函数的参数和返回值
@@ -230,5 +229,45 @@ class Test extends TraitsTest {
 ```php
 trait THello {
     protected const array CONST_ARRAY = [ /* ... */ ];
+}
+```
+
+## 析构方法中抛出异常
+
+在 `ZendPHP` 中，`__destruct()` 析构方法抛出异常会被引擎捕获并忽略（`zend_objects_store_del` 中调用 `zend_try/catch`），不会造成资源泄漏。
+
+但在 `AOT` 编译模式下，对象销毁路径经过 `phpx` 的 `Variant::unset()` / `~Variant()` / `destroy()` 等 C++ RAII 机制。析构方法中抛出异常会中断 Zend Engine 的 `zend_objects_store_del` 两阶段清理流程，导致部分内存未被释放（`free_obj` 和 GC 缓冲区移除被跳过）。
+
+编译器在编译时会检测到析构方法中抛出异常，并输出警告：
+
+```bash
+Warning: Throwing exception in MyClass::__destruct() may cause memory leak
+```
+
+**影响范围**：仅在析构方法执行抛出的异常会导致内存泄漏。程序不会崩溃或产生未定义行为，仅会造成轻微的内存泄漏（每次触发约泄漏对象结构体和 GC 缓冲区槽位）。
+
+**建议**：
+
+- 避免在 `__destruct()` 中执行可能抛出异常的操作
+- 如需在析构时执行可能失败的操作，使用 `try/catch` 在方法内部捕获并处理异常
+- 析构方法应仅用于释放资源，不应包含业务逻辑
+
+```php
+// 不推荐：析构方法中抛出异常
+class MyClass {
+    function __destruct() {
+        throw new \Exception("error in destructor"); // 编译警告 + 运行时内存泄漏
+    }
+}
+
+// 推荐：在内部捕获并处理
+class MyClass {
+    function __destruct() {
+        try {
+            // 可能失败的操作
+        } catch (\Throwable $e) {
+            error_log("destructor error: " . $e->getMessage());
+        }
+    }
 }
 ```
