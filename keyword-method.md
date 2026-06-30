@@ -41,8 +41,8 @@ echo $array['object']->toObject(User::class)->getName();
 |------|---------|------|
 | `toStdArray(type, size)` | `php::StdArray<T, N>` | 从 Var 恢复定长数组引用，编译期校验类型 |
 | `toStdVector(type)` | `php::StdVector<T>` | 从 Var 恢复动态数组引用 |
-| `toStdMap(keyType, valueType)` | `php::StdMap<K, V>` | 从 Var 恢复有序映射引用 |
-| `toStdUnorderedMap(keyType, valueType)` | `php::StdUnorderedMap<K, V>` | 从 Var 恢复哈希映射引用 |
+| `toStdOrderedMap(keyType, valueType)` | `php::StdOrderedMap<K, V>` | 从 Var 恢复有序映射引用 |
+| `toStdMap(keyType, valueType)` | `php::StdMap<K, V>` | 从 Var 恢复哈希映射引用 |
 
 `toStd*` 方法必须在顶层作用域调用，且目标变量不能重复赋值。这些方法内部调用 `php::toStdContainer<T>()`，提取 Box 资源中的容器引用并做运行时类型 ID 校验，返回零拷贝引用。
 

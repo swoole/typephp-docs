@@ -8,8 +8,8 @@ AOT 编译器将 C++ 标准库容器封装为 Box 资源，通过 `php::Var` 持
 |------|---------|-----------|------|
 | 定长数组 | `php::StdArray<T, N>` | `std::array(type, size)` | 编译期固定大小，通过 Box 堆上分配 |
 | 动态数组 | `php::StdVector<T>` | `std::vector(type, [size])` | `std::vector` 包装，堆上分配 |
-| 有序映射 | `php::StdMap<K, T>` | `std::map(ktype, vtype)` | `std::map`，字符串键使用 `zend_binary_strcmp` |
-| 哈希映射 | `php::StdUnorderedMap<K, T>` | `std::unordered_map(ktype, vtype)` | `std::unordered_map`，字符串键使用 `zend_string_hash_val` |
+| 有序映射 | `php::StdOrderedMap<K, T>` | `std::ordered_map(ktype, vtype)` | `std::map`，字符串键使用 `zend_binary_strcmp` |
+| 哈希映射 | `php::StdMap<K, T>` | `std::map(ktype, vtype)` | `std::unordered_map`，字符串键使用 `zend_string_hash_val` |
 
 ### 内部实现
 
@@ -59,7 +59,7 @@ $bigVec[] = 12345678901234567890;
 var_dump($bigVec[0]->toString());  // "99"
 
 // BigFloat map —— key 为 int，value 为 BigFloat
-$bigMap = std::map(native_types::type_int, native_types::type_bigfloat);
+$bigMap = std::ordered_map(native_types::type_int, native_types::type_bigfloat);
 $bigMap[0] = 3.14;
 $bigMap[1] = 2.71;
 var_dump($bigMap[0]->toString());  // "3.1400000000000001"
@@ -256,7 +256,7 @@ matrix_ref[0L][0L] = php::toInt(1L);
 
 ---
 
-## 3. StdMap — 有序映射
+## 3. StdOrderedMap — 有序映射
 
 基于 `std::map<K, T>`，键有序存储。字符串键使用 `zend_binary_strcmp` 比较。
 
@@ -266,7 +266,7 @@ use native_types;
 
 function main(): void {
     // 创建 string → int 的映射
-    $m = std::map(complex_types::type_string, native_types::type_int);
+    $m = std::ordered_map(complex_types::type_string, native_types::type_int);
 
     // 写入
     $m["alpha"] = 100;
@@ -296,8 +296,8 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::Var m = php::Var(new php::StdContainerBox<php::StdMap<php::Str, php::Int>>(1));
-auto &m_ref = m.toBox<php::StdContainerBox<php::StdMap<php::Str, php::Int>>>()->container;
+php::Var m = php::Var(new php::StdContainerBox<php::StdOrderedMap<php::Str, php::Int>>(1));
+auto &m_ref = m.toBox<php::StdContainerBox<php::StdOrderedMap<php::Str, php::Int>>>()->container;
 m_ref.offsetSet(php::Str("alpha"), php::toInt(100L));
 m_ref.offsetSet(php::Str("beta"), php::toInt(200L));
 php::echo(m_ref.offsetGet(php::Str("alpha")));
@@ -309,7 +309,7 @@ m_ref.offsetGet(php::Str("alpha")) += php::toInt(10L);
 - **`$v = $map[$k]`（右值）**：使用 `std::map::at()`——若 key 不存在，抛出 `std::out_of_range`
 - **`$map[$k] = $v`（左值）**：使用 `std::map::operator[]`——若 key 不存在，默认插入
 
-### StdMap 方法速查
+### StdOrderedMap 方法速查
 
 | 操作 | PHP | 生成的 C++ |
 |------|-----|-----------|
@@ -322,9 +322,9 @@ m_ref.offsetGet(php::Str("alpha")) += php::toInt(10L);
 
 ---
 
-## 4. StdUnorderedMap — 哈希映射
+## 4. StdMap — 哈希映射
 
-基于 `std::unordered_map<K, T>`，字符串键使用 `zend_string_hash_val` 哈希和 `zend_string_equals` 比较。接口与 `StdMap` 一致。
+基于 `std::unordered_map<K, T>`，字符串键使用 `zend_string_hash_val` 哈希和 `zend_string_equals` 比较。接口与 `StdOrderedMap` 一致。
 
 ```php
 declare(strict_types=1);
@@ -332,7 +332,7 @@ use native_types;
 
 function main(): void {
     // 创建 int → User 的哈希映射
-    $u = std::unordered_map(native_types::type_int, User::class);
+    $u = std::map(native_types::type_int, User::class);
 
     $u[1] = new User(1);
     $u[2] = new User(2);
@@ -347,15 +347,15 @@ function main(): void {
 生成的 C++ 代码：
 
 ```cpp
-php::Var u = php::Var(new php::StdContainerBox<php::StdUnorderedMap<php::Int, php::Object>>(1));
-auto &u_ref = u.toBox<php::StdContainerBox<php::StdUnorderedMap<php::Int, php::Object>>>()->container;
+php::Var u = php::Var(new php::StdContainerBox<php::StdMap<php::Int, php::Object>>(1));
+auto &u_ref = u.toBox<php::StdContainerBox<php::StdMap<php::Int, php::Object>>>()->container;
 u_ref.offsetSet(php::toInt(1L), user1);
 u_ref.offsetSet(php::toInt(2L), user2);
 ```
 
-### StdMap vs StdUnorderedMap
+### StdOrderedMap vs StdMap
 
-| 特性 | StdMap | StdUnorderedMap |
+| 特性 | StdOrderedMap | StdMap |
 |------|--------|-----------------|
 | 底层 | `std::map`（红黑树） | `std::unordered_map`（哈希表） |
 | 遍历顺序 | 按键排序 | 无顺序保证 |
@@ -473,8 +473,8 @@ function main(): void {
 
 1. **顶层作用域声明**：std 容器和 `toStd*` 转换方法只能在函数顶层作用域声明，不能在 `if`/`for`/`while` 等嵌套块中
 2. **不可重新赋值**：变量一旦声明为某种 std 容器类型，不能重新赋值给不同类型的容器
-3. **不支持嵌套访问（非 Array 类型）**：`$vec[a][b]` 仅 StdArray 支持嵌套；StdVector/StdMap/StdUnorderedMap 不支持
-4. **foreach 中不可删除**：StdMap/StdUnorderedMap 处于 foreach 循环中时，不可 `unset` 其元素
-5. **键类型限制**：map/unordered_map 键仅支持 `type_int` 和 `type_string`
-6. **unset 语义差异**：StdVector/StdArray 对元素 `unset` 是重置为零值（`T{}`），不改变容器大小；StdMap/StdUnorderedMap 对元素 `unset` 是真正删除（`erase`），会缩减容器大小，之后读取该键会抛出异常
+3. **不支持嵌套访问（非 Array 类型）**：`$vec[a][b]` 仅 StdArray 支持嵌套；StdVector/StdOrderedMap/StdMap 不支持
+4. **foreach 中不可删除**：StdOrderedMap/StdMap 处于 foreach 循环中时，不可 `unset` 其元素
+5. **键类型限制**：map/ordered_map 键仅支持 `type_int` 和 `type_string`
+6. **unset 语义差异**：StdVector/StdArray 对元素 `unset` 是重置为零值（`T{}`），不改变容器大小；StdOrderedMap/StdMap 对元素 `unset` 是真正删除（`erase`），会缩减容器大小，之后读取该键会抛出异常
 7. **不可作为引用参数传递**：std 容器变量不可通过 `&$var` 引用方式传递

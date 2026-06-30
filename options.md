@@ -1,11 +1,11 @@
 ## 编译参数
 
-AOT 编译器支持命令行参数和 [project.yml 配置](project-yml.md) 两种方式指定编译选项。命令行参数优先级最高，其次是 YAML 配置，最后是默认值。
+AOT 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) 两种方式指定编译选项。命令行参数优先级最高，其次是 YAML 配置，最后是默认值。
 
 ### 用法
 
 ```shell
-php bin/compiler.php <file/dir/project.yml> [options]
+php bin/compiler.php <file/dir/config.yml> [options]
 ```
 
 ## 命令行参数
@@ -254,4 +254,4 @@ php bin/compiler.php app.php --no-color -O2
 
 ---
 
-> 💡 多文件项目推荐使用 [project.yml 配置文件](project-yml.md) 统一管理项目构建参数。
+> 💡 多文件项目推荐使用 [YAML 配置文件](project-yml.md) 统一管理项目构建参数，文件名可以是 `project.yml`，也可以是任意传给编译器的 `*.yml`。

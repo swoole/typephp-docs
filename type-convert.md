@@ -207,7 +207,7 @@ function std_convert(): void
     echo $v[0];  // 42
 
     // 从 mixed 恢复为 std::map<string, int>
-    $m = $data->toStdMap(complex_types::type_string, native_types::type_int);
+    $m = $data->toStdOrderedMap(complex_types::type_string, native_types::type_int);
     $m["key"] = 100;
 }
 ```
@@ -216,8 +216,8 @@ function std_convert(): void
 |------|---------|-----------|------|
 | `toStdArray(type, size)` | `php::StdArray<T, N>` | 索引为 `int` | 定长数组，大小在编译期确定 |
 | `toStdVector(type)` | `php::StdVector<T>` | 索引为 `int` | 动态数组 |
-| `toStdMap(ktype, vtype)` | `php::StdMap<K, T>` | `int` 或 `string` | 有序映射 |
-| `toStdUnorderedMap(ktype, vtype)` | `php::StdUnorderedMap<K, T>` | `int` 或 `string` | 哈希映射 |
+| `toStdOrderedMap(ktype, vtype)` | `php::StdOrderedMap<K, T>` | `int` 或 `string` | 有序映射 |
+| `toStdMap(ktype, vtype)` | `php::StdMap<K, T>` | `int` 或 `string` | 哈希映射 |
 
 ### 使用限制
 

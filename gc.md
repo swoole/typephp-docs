@@ -21,7 +21,7 @@ graph TD
     end
 
     subgraph STD["Std 容器 — C++ RAII"]
-        S1["StdVector / StdArray / StdMap / StdUnorderedMap"]
+        S1["StdVector / StdArray / StdOrderedMap / StdMap"]
         S2["std::vector / std::array / std::map<br/>内嵌 Variant 元素"]
         S3["容器析构 → 元素 Variant 析构 → zval_ptr_dtor"]
     end

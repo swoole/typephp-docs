@@ -22,8 +22,8 @@ AOT 编译器支持以下 C++ 存储类型（`php::*`）：
 | `TYPE_BIGFLOAT` | `php::BigFloat` | — | 二进制高精度浮点 |
 | `TYPE_STD_VECTOR` | `php::StdVector` | — | C++ `std::vector` |
 | `TYPE_STD_ARRAY` | `php::StdArray` | — | C++ `std::array`（定长） |
-| `TYPE_STD_MAP` | `php::StdMap` | — | C++ `std::map`（有序） |
-| `TYPE_STD_UNORDERED_MAP` | `php::StdUnorderedMap` | — | C++ `std::unordered_map` |
+| `TYPE_STD_MAP` | `php::StdMap` | — | C++ `std::unordered_map` |
+| `TYPE_STD_ORDERED_MAP` | `php::StdOrderedMap` | — | C++ `std::map`（有序） |
 | `TYPE_ARGS` | `php::Args` | — | 可变参数列表 |
 | `TYPE_REF` | `php::Ref` | — | 引用类型 |
 | `TYPE_VOID` | `void` | `void` | 无返回值 |
@@ -122,12 +122,12 @@ $v[] = 20;
 $a = std::array(native_types::type_float, 5);
 $a[0] = 3.14;
 
-// std::map — 有序映射
-$m = std::map(complex_types::type_string, native_types::type_int);
+// std::ordered_map — 有序映射
+$m = std::ordered_map(complex_types::type_string, native_types::type_int);
 $m["key"] = 100;
 
-// std::unordered_map — 哈希映射
-$u = std::unordered_map(native_types::type_int, User::class);
+// std::map — 哈希映射
+$u = std::map(native_types::type_int, User::class);
 $u[1] = new User(1);
 ```
 
@@ -356,7 +356,7 @@ PHP 的联合类型（`int|float`、`int|string` 等）在编译时退化为 `ph
 
 ### 7.7 Std 容器键类型限制
 
-`std::map` 和 `std::unordered_map` 的键类型仅支持：
+`std::ordered_map` 和 `std::map` 的键类型仅支持：
 - `native_types::type_int` — 整数键
 - `complex_types::type_string` / `complex_types::type_str` — 字符串键
 
