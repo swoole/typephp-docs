@@ -7,6 +7,7 @@
     * [性能分析](profiling.md)
 * [类型系统](types.md)
     * [类型转换](type-convert.md)
+    * [对象类型转换](object-type-conversion.md)
     * [Std 容器](std-containers.md)
     * [GC 机制](gc.md)
 * [兼容性](compatible.md)

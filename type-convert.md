@@ -2,7 +2,7 @@
 
 `to*` 是 AOT 编译器提供的关键词方法（keyword method），用于将表达式或变量的值显式转换为目标类型。与普通通用方法不同，`to*` 方法在编译器中具有一等公民地位——无论 receiver 为何种类型，编译器都按照内置规则进行转换，跳过类型方法表查找。
 
-所有 `to*` 方法调用在编译时完全消解为 C++ 函数调用，**零运行时开销**。
+所有 `to*` 方法调用都会在编译期消解为明确的 C++ 函数调用。基础标量类型转换通常没有额外调度开销；对象类型转换如果携带类名，会在运行时执行对象类型检查。
 
 ---
 
@@ -183,9 +183,9 @@ function object_convert(mixed $input): void
 | 用法 | 生成代码 | 类型信息 |
 |------|---------|---------|
 | `$x->toObject()` | `php::toObject($x)` | 无（`php::Object`） |
-| `$x->toObject(User::class)` | `php::toObject($x, ce_User, true)` | 有（编译器知道具体类） |
+| `$x->toObject(User::class)` | `php::toObject($x, ce_User)` | 有（编译器知道目标类） |
 
-> **提示**：`toObject(ClassName::class)` 和 `objval($var, ClassName::class)` 均可用于对象类型接续，前者支持链式调用。
+> **提示**：`toObject(ClassName::class)` 和 `objval($var, ClassName::class)` 均可用于对象类型接续，前者支持链式调用。带类名的对象转换使用 PHP `instanceof` / `is-a` 关系进行运行时检查，详见 [对象类型转换](object-type-conversion.md)。
 
 ---
 

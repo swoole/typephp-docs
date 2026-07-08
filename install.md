@@ -50,7 +50,11 @@ composer install
 
 需要 `GCC 9` 或更高版本，建议使用 `Ubuntu 22.04` 或更高版本的操作系统。
 
+> `phpx`依赖`gmp`和`mpfr`库，请确保已安装。
+
+
 ```shell
+sudo apt install libgmp-dev libmpfr-dev
 cd vendor/swoole/phpx
 cmake .
 make -j 16 

@@ -21,6 +21,10 @@ sources:
   - src/
   - lib/utils.php
   - native/helper.cpp
+  - path: compat/php84.php
+    if: PHP_VERSION_ID >= 80400
+  - path: compat/php84-version.php
+    if: PHP_VERSION >= "8.4.0"
 
 # 忽略的文件或目录
 ignore:
@@ -100,7 +104,7 @@ resource:
 | `no-progress` | `boolean` | 禁用进度条输出，等价于 `--no-progress` |
 | `no-console` | `boolean` | 隐藏控制台窗口，等价于 `--no-console`。仅 Windows 生效 |
 | `sanitize` | `string` | 启用 Sanitizer，等价于 `--sanitize`，例如 `address`、`undefined` |
-| `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm` |
+| `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm`。可使用 `path` + `if` 按 PHP 版本条件加载 |
 | `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
 | `build-dir` | `string` | 构建目录，等价于 `--build-dir`。支持相对路径和绝对路径；相对路径基于当前 YAML 文件所在目录解析 |
 | `dry` | `boolean` | 干运行模式，等价于 `--dry` |
@@ -123,6 +127,36 @@ resource:
 命令行参数 > YAML 配置 > 默认值。
 
 例如，YAML 中设置了 `cxx-std: c++17`，但命令行传入 `--cxx-std=c++20`，最终使用 `c++20`。
+
+## 条件编译
+
+`sources` 支持按条件编译。字符串写法保持兼容；需要条件时使用 `path` 和 `if`：
+
+```yaml
+sources:
+  - main.php
+  - path: compat/php84.php
+    if: PHP_VERSION_ID >= 80400
+  - path: compat/php84-version.php
+    if: PHP_VERSION >= "8.4.0"
+  - path: compat/php82.php
+    if: PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80400
+  - path: platform/linux.php
+    if: PHP_OS_FAMILY == "Linux"
+```
+
+条件左值只支持 `PHP_VERSION_ID`、`PHP_VERSION`、`PHP_OS_FAMILY` `3`种常量。支持多个条件，关系可以是 `&&` 或 `||`。
+条件为 `false` 时该 `source` 会被跳过，不要求文件存在。此能力仅适用于 `YAML` 配置文件，不提供对应命令行参数。
+
+### PHP_VERSION_ID
+条件右值必须为数字，必须为合法的`PHP`版本号数字。`PHP_VERSION_ID` 会先转换为`PHP_VERSION`再进行比较，例如 `80400` 转为 `8.4.0`。
+
+### PHP_VERSION
+条件右值必须字符串，必须为合法的`PHP`版本号。操作符支持：`<`、`lt`、`<=`、`le`、`>`、`gt`、`>=`、`ge`、`==`、`=`、`eq`、`!=`、`<>`、`ne`。
+内部使用 `version_compare()` 处理。
+
+### PHP_OS_FAMILY
+条件右值必须字符串，必须为合法的操作系统族名。操作符支持：`==`、`!=`。
 
 ## 不使用 YAML 配置文件
 
