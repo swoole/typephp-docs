@@ -5,8 +5,12 @@
 ## 完整示例
 
 ```yaml
-# 输出文件名（等价于 -o/--output）
+# 输出文件路径（等价于 -o/--output）
 output: build/myapp
+
+# 若只需要指定产物名称，也可以使用 name
+# name 不改变输出目录
+# name: myapp
 
 # 构建模式：bin(可执行文件) / ext(扩展) / binary / extension / cli
 mode: bin
@@ -21,10 +25,10 @@ sources:
   - src/
   - lib/utils.php
   - native/helper.cpp
-  - path: compat/php84.php
-    if: PHP_VERSION_ID >= 80400
-  - path: compat/php84-version.php
-    if: PHP_VERSION >= "8.4.0"
+  - if: PHP_VERSION_ID >= 80400
+    path: compat/php84.php
+  - if: PHP_VERSION >= "8.4.0"
+    path: compat/php84-version.php
 
 # 忽略的文件或目录
 ignore:
@@ -94,7 +98,8 @@ resource:
 
 | 配置项 | 类型 | 说明 |
 |--------|------|------|
-| `output` / `name` | `string` | 输出文件名，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
+| `output` | `string` | 输出文件路径，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
+| `name` | `string` | 仅设置输出文件名，不改变输出目录。例如 `name: myapp` 会在当前工作目录生成 `./myapp` |
 | `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）和 `ext`/`extension`（扩展） |
 | `optimize` | `integer` | 优化级别，等价于 `-O`，取值范围 `0` ~ `3` |
 | `job` | `integer` | 并行编译任务数，等价于 `-j` / `--job` |
@@ -104,7 +109,7 @@ resource:
 | `no-progress` | `boolean` | 禁用进度条输出，等价于 `--no-progress` |
 | `no-console` | `boolean` | 隐藏控制台窗口，等价于 `--no-console`。仅 Windows 生效 |
 | `sanitize` | `string` | 启用 Sanitizer，等价于 `--sanitize`，例如 `address`、`undefined` |
-| `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm`。可使用 `path` + `if` 按 PHP 版本条件加载 |
+| `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm`。可使用 `if` + `path` 按 PHP 版本或操作系统条件加载 |
 | `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
 | `build-dir` | `string` | 构建目录，等价于 `--build-dir`。支持相对路径和绝对路径；相对路径基于当前 YAML 文件所在目录解析 |
 | `dry` | `boolean` | 干运行模式，等价于 `--dry` |
@@ -122,41 +127,85 @@ resource:
 | `link-paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
 
+## name 与 output 的差异
+
+`name` 和 `output` 都可以影响最终产物名称，但语义不同：
+
+- `name` 只设置产物文件名，不设置输出目录。
+- `output` 设置完整输出路径，等价于命令行 `-o` / `--output`。
+- `name` 不会按 YAML 文件所在目录解析；产物默认生成在执行编译命令时的当前工作目录。
+- `output` 如果包含目录部分，会同时设置输出目录和文件名；相对路径按 YAML 文件所在目录解析。
+- 同时配置 `output` 和 `name` 时，以 `output` 为准。
+
+例如：
+
+```yaml
+name: tetris
+sources:
+  - main.php
+```
+
+执行：
+
+```bash
+./tpc examples/tetris-sdl/project.yml
+```
+
+会生成：
+
+```text
+./tetris
+```
+
+而不是：
+
+```text
+examples/tetris-sdl/tetris
+```
+
+如果希望显式输出到 YAML 目录下，应使用 `output`：
+
+```yaml
+output: tetris
+sources:
+  - main.php
+```
+
 ## 优先级
 
 命令行参数 > YAML 配置 > 默认值。
 
 例如，YAML 中设置了 `cxx-std: c++17`，但命令行传入 `--cxx-std=c++20`，最终使用 `c++20`。
 
-## 条件编译
+## 条件 sources
 
-`sources` 支持按条件编译。字符串写法保持兼容；需要条件时使用 `path` 和 `if`：
+`sources` 支持按条件加载。字符串写法保持兼容；需要条件时使用 `if` 和 `path`。`if` 与 `path` 是同一条 source 的映射字段，顺序无关；推荐将 `if` 写在前面，便于先看到加载条件。
 
 ```yaml
 sources:
   - main.php
-  - path: compat/php84.php
-    if: PHP_VERSION_ID >= 80400
-  - path: compat/php84-version.php
-    if: PHP_VERSION >= "8.4.0"
-  - path: compat/php82.php
-    if: PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80400
-  - path: platform/linux.php
-    if: PHP_OS_FAMILY == "Linux"
+  - if: PHP_VERSION_ID >= 80400
+    path: compat/php84.php
+  - if: PHP_VERSION >= "8.4.0"
+    path: compat/php84-version.php
+  - if: PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80400
+    path: compat/php82.php
+  - if: PHP_OS_FAMILY == "Linux"
+    path: platform/linux.php
 ```
 
-条件左值只支持 `PHP_VERSION_ID`、`PHP_VERSION`、`PHP_OS_FAMILY` `3`种常量。支持多个条件，关系可以是 `&&` 或 `||`。
-条件为 `false` 时该 `source` 会被跳过，不要求文件存在。此能力仅适用于 `YAML` 配置文件，不提供对应命令行参数。
+条件左值仅支持 `PHP_VERSION_ID`、`PHP_VERSION`、`PHP_OS_FAMILY` 3 种常量。支持使用 `&&`、`||`、`!` 和括号组合多个条件。
+条件为 `false` 时该 `source` 会被跳过，跳过项不要求文件存在。此能力仅适用于 `YAML` 配置文件，不提供对应命令行参数。
 
 ### PHP_VERSION_ID
-条件右值必须为数字，必须为合法的`PHP`版本号数字。`PHP_VERSION_ID` 会先转换为`PHP_VERSION`再进行比较，例如 `80400` 转为 `8.4.0`。
+条件右值必须是合法的 PHP 版本 ID 数字。`PHP_VERSION_ID` 会先转换为 `PHP_VERSION` 字符串再进行比较，例如 `80400` 转为 `8.4.0`。
 
 ### PHP_VERSION
-条件右值必须字符串，必须为合法的`PHP`版本号。操作符支持：`<`、`lt`、`<=`、`le`、`>`、`gt`、`>=`、`ge`、`==`、`=`、`eq`、`!=`、`<>`、`ne`。
+条件右值必须是合法的 PHP 版本号字符串。操作符支持：`<`、`lt`、`<=`、`le`、`>`、`gt`、`>=`、`ge`、`==`、`=`、`eq`、`!=`、`<>`、`ne`。
 内部使用 `version_compare()` 处理。
 
 ### PHP_OS_FAMILY
-条件右值必须字符串，必须为合法的操作系统族名。操作符支持：`==`、`!=`。
+条件右值必须是合法的操作系统族名字符串：`Windows`、`BSD`、`Darwin`、`Solaris`、`Linux`、`Unknown`。操作符仅支持：`==`、`!=`。
 
 ## 不使用 YAML 配置文件
 

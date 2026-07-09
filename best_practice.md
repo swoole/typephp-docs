@@ -61,14 +61,19 @@ class Bar {
 
 类型是非强制性的，`AOT`编译器将自动作为`any`类型编译生成指令。但建议对所有函数、类属性标注类型，明确类型可以让编译器生成性能更好代码。
 
-## 6. Nullable 与 UnionType
-由于`Nullable` 与 `UnionType` 类型不明确，`AOT`编译器在处理时会将其视为`any`类型，无法进行更多性能优化。建议使用`Nullable` 与 `UnionType`时，在逻辑链条中加入`toObject()`类型接续，使得编译器可以优化代码。
+## 6. Nullable、UnionType 与 IntersectionType
+由于 `Nullable`、`UnionType` 与 `IntersectionType` 类型在静态阶段无法展开为单一确定类型，编译器在处理时会将其视为 `any` 类型，无法进行更多性能优化。运行时 type check 仍会保留，避免绕过 PHP 类型约束。
+
+建议使用这些类型时，在逻辑链条中加入 `toObject()` 类型接续，使得编译器可以恢复具体对象类型并优化后续调用。如果希望继续保留动态行为，可使用 `toAny()` 或 `any()` 显式降级。
 
 ```php
 function foo(): ?MyClass {
 }
 
 function bar(): MyClass1 | MyClass2 {
+}
+
+function baz(): ?MyClass {
 }
 
 function main() {
@@ -83,11 +88,17 @@ function main() {
 
     $rs = bar();
     if ($rs instanceof MyClass1) {
-        $o1 = $rs->toObject(MyClass::class);
+        $o1 = $rs->toObject(MyClass1::class);
         $o1->someMethod();
     } elseif ($rs instanceof MyClass2 ) {
-        $o2 = $rs->toObject(MyClass::class);
+        $o2 = $rs->toObject(MyClass2::class);
         $o2->someMethod();
+    }
+
+    $rs = baz();
+    if ($rs !== null) {
+        $o = $rs->toObject(MyClass::class);
+        $o->someMethod();
     }
 }
 ```

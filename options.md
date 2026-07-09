@@ -21,12 +21,15 @@ php bin/compiler.php <file/dir/config.yml> [options]
 php bin/compiler.php app.php -O2
 ```
 
-### `-o, --output <file>` — 输出文件名
+### `-o, --output <file>` — 输出文件路径
 
 默认使用入口文件或目录的基本名。构建二进制时生成可执行文件，构建扩展时生成 `.so`/`.dll`。
 
+`--output` 可以只指定文件名，也可以包含目录。YAML 配置中的 `output` 与该参数等价；`name` 只设置文件名，不改变输出目录。
+
 ```shell
 php bin/compiler.php src/ -o myapp
+php bin/compiler.php src/ -o build/myapp
 ```
 
 ### `-m, --mode <mode>` — 构建模式

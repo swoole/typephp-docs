@@ -31,6 +31,7 @@ function convert_basic(mixed $input): void
 | `toString()` | `php::Str` | `php::toString($expr)` | |
 | `toBool()` | `php::Bool` | `php::toBool($expr)` | |
 | `toArray()` | `php::Array` | `php::toArray($expr)` | 见下方"对象转数组"说明 |
+| `toAny()` | `php::Var` | `php::Var($expr)` | 降级为动态类型，等价于 `any($expr)` |
 
 ### `toArray()` 对象转数组
 
@@ -76,7 +77,80 @@ PHP 的 `(int)` / `(float)` 等强制转换语法虽然也支持，但 `to*` 方
 
 ---
 
-## 2. Stream 类型转换
+## 2. 动态类型与引用转换
+
+`toAny()` 和 `toRef()` 是 AOT 专有关键词方法，用于替代函数式写法 `any()` 和 `refval()`。二者完全等价，但方法形式更适合链式表达式。
+
+### 2.1 `toAny()`
+
+`toAny()` 将表达式降级为 `php::Var` / `mixed` / `any` 动态类型，等价于 `any($expr)`。它不会恢复对象类信息，也不会生成对象类型检查。
+
+```php
+declare(strict_types=1);
+use native_types;
+
+function any_example(object $value): void
+{
+    $a = any($value);
+    $b = $value->toAny();  // 与 any($value) 等价
+}
+```
+
+典型使用场景：
+
+- 希望从 typed object 降级为动态值，避免后续按静态对象类型生成 native call。
+- 需要让运算回到 ZendVM/PHP 动态语义，例如整数除法、混合类型运算等。
+- 参数类型需要 `mixed` / `any`，但当前表达式是原生类型或 typed object。
+
+`toAny()` 不接受任何参数：
+
+```php
+$value->toAny();       // ✅
+$value->toAny($type);  // ❌ 编译错误
+```
+
+### 2.2 `toRef()`
+
+`toRef()` 将表达式显式转换为引用，等价于 `refval($expr)`。它主要用于动态调用、闭包调用等编译期无法获知参数是否按引用传递的场景。
+
+```php
+function append_text(&$value, string $suffix): void
+{
+    $value .= $suffix;
+}
+
+function ref_example(): void
+{
+    $name = 'AOT';
+
+    append_text(refval($name), ' compiler');
+    append_text($name->toRef(), ' runtime'); // 与 refval($name) 等价
+}
+```
+
+`toRef()` 只能用于编译器可定位的左值，例如变量、数组元素、对象属性：
+
+```php
+$value->toRef();        // ✅ 变量
+$array['key']->toRef(); // ✅ 数组元素
+$object->prop->toRef(); // ✅ 对象属性
+
+(1 + 2)->toRef();       // ❌ 常量/临时表达式不能转引用
+foo()->toRef();         // ❌ 调用结果不能转引用
+```
+
+与 `refval()` 一样，`toRef()` 不接受任何参数：
+
+```php
+$value->toRef();     // ✅
+$value->toRef(true); // ❌ 编译错误
+```
+
+> **提示**：静态函数和内置函数的参数信息明确时，编译器可以自动处理引用参数。只有动态调用、闭包调用、可变函数调用等无法在编译期获得参数签名的场景，才需要显式使用 `toRef()` / `refval()`。
+
+---
+
+## 3. Stream 类型转换
 
 `toStream()` 将表达式的值转换为 `php::Stream`，之后可直接调用 Stream 通用方法（如 `write`、`read`、`close`）。
 
@@ -98,11 +172,11 @@ function stream_example(): void
 
 ---
 
-## 3. 高精度数值类型转换
+## 4. 高精度数值类型转换
 
 Big* 类型（BigInt / Decimal / BigFloat）定义了更精确的转换路径，编译器针对每种源类型使用专用的转换函数，避免精度损失。
 
-### 3.1 BigInt 上的转换
+### 4.1 BigInt 上的转换
 
 ```php
 declare(strict_types=1);
@@ -120,7 +194,7 @@ function bigint_convert(): void
 }
 ```
 
-### 3.2 Decimal 上的转换
+### 4.2 Decimal 上的转换
 
 ```php
 $d = std::decimal("123.456");
@@ -132,7 +206,7 @@ $b = $d->toBigInt();            // php::newBigInt(php::Decimal::toString($d))
 $bf = $d->toBigFloat();         // php::BigFloat::newInstance(php::Decimal::toString($d))
 ```
 
-### 3.3 BigFloat 上的转换
+### 4.3 BigFloat 上的转换
 
 ```php
 $bf = std::bigFloat("1.23e100");
@@ -144,7 +218,7 @@ $b = $bf->toBigInt();           // php::newBigInt(php::BigFloat::toString($bf))
 $d = $bf->toDecimal();          // php::newDecimal(php::BigFloat::toString($bf))
 ```
 
-### 3.4 跨 Big* 类型转换规则
+### 4.4 跨 Big* 类型转换规则
 
 Big* → String 始终通过各类型的 `toString()` 静态方法，避免二进制浮点误差：
 
@@ -161,7 +235,7 @@ Big* → String 始终通过各类型的 `toString()` 静态方法，避免二�
 
 ---
 
-## 4. 对象类型转换
+## 5. 对象类型转换
 
 `toObject()` 将表达式的值转换为 `php::Object`。无参数时得到泛型对象（无具体类信息），传 `ClassName::class` 可重建带类信息的类型。
 
@@ -189,7 +263,7 @@ function object_convert(mixed $input): void
 
 ---
 
-## 5. Std 容器类型转换
+## 6. Std 容器类型转换
 
 `toStd*` 方法将 `php::Var` 类型的变量转换为指定的 C++ 标准库容器类型。这类方法**必须在顶层作用域**调用，且**不能重复赋值**已声明的变量。
 
@@ -227,7 +301,7 @@ function std_convert(): void
 
 ---
 
-## 6. 类型推断
+## 7. 类型推断
 
 编译器对 `to*` 方法的返回类型有精确的内置推断规则。无论 receiver 是何种类型，检测到 `to*` 方法时直接返回对应目标类型：
 
@@ -239,14 +313,16 @@ echo $val->toString()->length();
 
 类型推断覆盖以下场景：
 - **链式调用**：`$a->toBigInt()->mul(3)->toString()` — 编译器逐级推断 BigInt → BigInt → Str
+- **动态降级**：`$obj->toAny()` — 编译器将后续值视为 `php::Var`
+- **显式引用**：`$value->toRef()` — 编译器将参数按引用传递
 - **条件分支**：`if` 两个分支中 `to*` 的返回类型在不同分支中独立推断
 - **函数返回值**：`return $x->toString()` → 函数返回类型为 `php::Str`
 
 ---
 
-## 7. void 类型限制
+## 8. void 类型行为
 
-返回类型为 `void` 的表达式不能调用任何方法（包括 `to*`），编译器会在编译期报错：
+返回类型为 `void` / `never` 的表达式作为值使用时会按 `null` 处理。对这类表达式继续调用 `to*` 方法没有实际意义，结果等价于对 `null` 做对应转换。
 
 ```php
 function bar(): void
@@ -254,16 +330,13 @@ function bar(): void
     var_dump(__FUNCTION__);
 }
 
-// ❌ 编译错误：Cannot call method on void
-bar()->toString();
-bar()->toInt();
+$value = bar()->toAny();     // 等价于 any(null)
+$text = bar()->toString();   // 等价于 php::toString(null)
 ```
-
-> 这是一项编译期安全检查，防止在无意义的 void 表达式上链式调用方法。
 
 ---
 
-## 8. 与通用方法的关系
+## 9. 与通用方法的关系
 
 `to*` 方法是**语言关键词**，而非普通的通用方法：
 
@@ -278,7 +351,7 @@ bar()->toInt();
 
 ---
 
-## 9. 综合示例
+## 10. 综合示例
 
 ```php
 declare(strict_types=1);

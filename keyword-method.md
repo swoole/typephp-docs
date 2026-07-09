@@ -2,7 +2,7 @@
 
 关键词方法（keyword method）是编译器内置的一等公民方法，调用时跳过类型方法表查找，直接由编译器匹配内置规则生成 C++ 代码。无论 receiver 是何种类型（包括 `mixed` / `any` / `var`），关键词方法都能无歧义地工作。
 
-所有关键词方法调用在编译时完全消解为 C++ 函数调用，**零运行时开销**。
+所有关键词方法调用在编译时由编译器直接识别，不会产生动态方法分派开销。部分关键词方法仍会执行必要的运行时转换或检查，例如 `toObject(ClassName::class)` 会校验对象是否满足目标类型。
 
 
 ## 关键词方法示例
@@ -27,13 +27,24 @@ echo $array['object']->toObject(User::class)->getName();
 | `toString()` | `php::Str` | `php::toString($expr)` | 转为字符串 |
 | `toBool()` | `php::Bool` | `php::toBool($expr)` | 转为布尔值 |
 | `toArray()` | `php::Array` | `php::toArray($expr)` | 转为数组；若 receiver 为对象且有 `toArray()` 方法，优先调用该方法 |
+| `toAny()` | `php::Var` | `php::Var($expr)` | 降级为动态类型；等价于 `any($expr)` |
+| `toRef()` | `php::Ref` | `$expr.toReference()` / `php::toReference(...)` | 显式转为引用；等价于 `refval($expr)` |
 | `toStream()` | `php::Stream` | `php::toStream($expr)` | 转为流类型 |
 | `toBigInt()` | `php::BigInt` | `php::toBigInt($expr)` | 转为高精度整数 |
 | `toBigFloat()` | `php::BigFloat` | `php::toBigFloat($expr)` | 转为高精度浮点数 |
 | `toDecimal()` | `php::Decimal` | `php::toDecimal($expr)` | 转为高精度十进制数 |
 | `toObject()` | `php::Object` | `php::toObject($expr)` | 转为对象；支持 `toObject(ClassName::class)` 传类名重建类型信息 |
 
-这些方法在任何类型的表达式上均可调用，等价于 PHP 的类型强制转换语法，但支持链式调用和精确的编译期类型推断。详见 [类型转换](type-convert.md)。
+这些方法在任何类型的表达式上均可调用。`toInt()` / `toFloat()` / `toString()` 等基础转换等价于 PHP 的类型强制转换语法，但支持链式调用和精确的编译期类型推断；`toAny()` 等价于 `any()`；`toRef()` 等价于 `refval()`。详见 [类型转换](type-convert.md)。
+
+`toAny()` 和 `toRef()` 均不接受参数：
+
+```php
+$value->toAny();  // ✅ any($value)
+$value->toRef();  // ✅ refval($value)
+```
+
+`toRef()` 只能作用于变量、数组元素、对象属性等可定位左值。动态调用、闭包调用等无法在编译期获知参数是否为引用时，可使用 `toRef()` 显式传引用。
 
 ### 1.2 Std 容器转换方法
 

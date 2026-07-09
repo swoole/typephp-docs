@@ -262,13 +262,19 @@ $v = intval($array['count']);     // → php::Int
 $v = floatval($array['price']);   // → php::Float
 $v = boolval($array['active']);   // → php::Bool
 $v = strval($array['name']);      // → php::Str
+
+// 显式降级为动态类型
+$v = $array['mixed']->toAny();    // → php::Var，等价于 any($array['mixed'])
+
+// 显式转为引用
+$ref = $array['value']->toRef();  // → php::Ref，等价于 refval($array['value'])
 ```
 
 > **注意**：`(object)` 转换得到的是 `php::Object`，**不包含具体的类信息**，编译器无法对其方法进行 Native Call 优化。请始终使用 `toObject(ClassName::class)` 重建对象类型。
 
 ### 6.4 类型丢弃
 
-某些场景下，一个变量在不同条件分支中需要持有不同类型的值（如不同类的对象），此时编译器的静态类型推断会成为障碍——编译器根据第一次赋值推断类型，后续赋值不同类型会报错。使用 `any()` 可以将类型标注为 `php::Var`，放弃编译期类型跟踪，交由运行时动态处理。
+某些场景下，一个变量在不同条件分支中需要持有不同类型的值（如不同类的对象），此时编译器的静态类型推断会成为障碍——编译器根据第一次赋值推断类型，后续赋值不同类型会报错。使用 `any()` 或等价关键词方法 `toAny()` 可以将类型标注为 `php::Var`，放弃编译期类型跟踪，交由运行时动态处理。
 
 ```php
 class Foo1 {
@@ -300,7 +306,7 @@ function main() {
 - 去掉 `any()`，编译器会将 `$o` 的类型锁定为 `Foo1`，`else` 分支中赋值 `Foo2` 对象会报类型冲突错误
 - 加上 `any()` 后，`$o` 被标注为 `php::Var`，可接收任意类型的值，方法调用走动态分发
 
-`any()` 在编译期被直接替换为表达式本身，**零运行时开销**。
+`any()` 与 `toAny()` 只影响编译期类型推断，不会生成额外的运行时类型检查。需要注意：降级为 `php::Var` 后，编译器也不会再为该变量生成 typed object 的 Native Call 优化。
 
 
 ## 7. 类型限制
@@ -346,9 +352,9 @@ $a++;  // ❌ 编译错误
 $a--;  // ❌ 编译错误
 ```
 
-### 7.5 联合类型退化为 Var
+### 7.5 联合类型、交叉类型、Nullable 类型退化为 Var
 
-PHP 的联合类型（`int|float`、`int|string` 等）在编译时退化为 `php::Var`，无法享受原生类型的性能优势。
+PHP 的联合类型（`int|float`、`int|string` 等）、交叉类型（`A&B`）和 Nullable 类型（`?A`）在编译时退化为 `php::Var`，无法享受原生类型的性能优势。编译器仍会保留运行时 type check，避免静态阶段无法处理时绕过 PHP 类型约束。
 
 ### 7.6 object 类型不保留类信息
 

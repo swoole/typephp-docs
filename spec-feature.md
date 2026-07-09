@@ -167,12 +167,14 @@ $a = any(10); // $a 的类型为 Var
 $b = $a / 3;  // $b 的值为 3.33333...，类型为浮点型
 ```
 
+`any($value)` 与关键词方法 `$value->toAny()` 等价。二者都只影响编译期类型推断，不会产生额外的运行时类型检查。
+
 
 ## objval($value, $className)
 
 从 `mixed` / `any` 类型变量重建带类信息的对象类型，是
 
-`$var->toObject(ClassName::class)` 的函数式写法。与 `any()` 类似，`objval()` 在 AOT 编译器中被编译期替换为表达式本身，零运行时开销。
+`$var->toObject(ClassName::class)` 的函数式写法。`objval()` 会在编译期恢复对象类型信息，使后续方法调用有机会生成 Native Call；运行时仍会校验实际对象是否满足目标类、父类或接口约束。
 
 ```php
 $obj = $array['object'];
@@ -193,7 +195,7 @@ $obj = objval($var, $someClass);
 
 ## refval($value)
 
-在动态调用中将值传递修改为引用传递。`refval()` 接受**变量**、**数组元素**或**对象属性**作为参数，不能传入表达式。
+在动态调用中将值传递修改为引用传递。`refval()` 接受**变量**、**数组元素**或**对象属性**作为参数，不能传入表达式。`refval($value)` 与关键词方法 `$value->toRef()` 等价。
 
 **变量引用：**
 
@@ -235,6 +237,10 @@ echo $obj->prop; // 输出：modified
 retval_test(refval("literal string"));
 retval_test(refval($a + $b));
 retval_test(refval(foo()));
+
+// ❌ toRef() 同样不能用于临时表达式
+retval_test(($a + $b)->toRef());
+retval_test(foo()->toRef());
 ```
 
 而下面的代码是不需要添加`refval()`的：
