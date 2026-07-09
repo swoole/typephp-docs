@@ -18,6 +18,7 @@
     * [Box 对象封装](box.md)
 * [高精度运算](math.md)
 * [通用方法](universal_method.md)
+* [编译期函数](compile-time-functions.md)
 * [关键词方法](keyword-method.md)
 * [最佳实践](best_practice.md)
 * [常见问题](question.md)
