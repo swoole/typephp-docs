@@ -22,9 +22,35 @@
 | `std::map($keyType, $valueType)` | 创建哈希 StdMap 容器 |
 | `std::ordered_map($keyType, $valueType)` | 创建有序 StdOrderedMap 容器 |
 
+## 使用位置与名称写法
+
+这三个函数的用途不同，适用位置也不同：
+
+| 函数 | 可使用的位置 | 说明 |
+|------|--------------|------|
+| `any()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值、数组元素、运算式、条件表达式等。 |
+| `objval()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值和方法调用前的对象转换。 |
+| `refval()` | 仅限调用参数 | 用于把一个可引用的值传给需要引用的参数；它不是普通值转换函数。 |
+
+请使用小写、无命名空间前缀的标准写法：`any()`、`objval()`、`refval()`。不要依赖 `ANY()`、`\any()` 等大小写或前导反斜杠变体被识别为 TypePHP 编译期函数。
+
 ## any($value)
 
 `any()` 将表达式的编译期类型降级为动态类型。降级后变量可以接收任意 PHP 值，但编译器也不再为它生成 native type、typed object 或 Native Call 优化。
+
+`any()` 是普通值表达式，可以放在任何需要值的位置。例如：
+
+```php
+function identity(mixed $value): mixed {
+    return any($value);
+}
+
+function main(): void {
+    $values = [any(1), any("two")];
+    var_dump(any(3) + 1);
+    var_dump(identity(any($values[0])));
+}
+```
 
 ```php
 function main(): void {
@@ -68,6 +94,20 @@ function main(): void {
 `refval()` 用于显式传递引用。它主要用于动态调用、闭包调用、可变函数调用等编译期无法获知参数是否为引用的场景。
 
 `refval()` 的参数必须是可作为引用的左值：变量、数组元素或对象属性。不能传入字面量、函数返回值、算术表达式等临时值。
+
+`refval()` 只能作为一次函数或方法调用的参数使用：
+
+```php
+$callback(refval($value));
+```
+
+不要把它当作普通值表达式使用；例如以下写法不受支持：
+
+```php
+return refval($value);
+$list = [refval($value)];
+$sum = refval($value) + 1;
+```
 
 变量引用：
 
@@ -132,6 +172,14 @@ function main(): void {
 `objval()` 从 `mixed` / `any` 值恢复对象声明类型。它会让编译器知道后续表达式按指定类、父类、抽象类或接口处理，并在运行时插入对象类型检查。
 
 第二个参数只支持字符串字面量或 `ClassName::class`。不能使用变量动态传入类名。
+
+`objval()` 是普通值表达式。除赋值外，也可以直接用于参数、返回值、数组元素或紧随其后的方法调用：
+
+```php
+function display_name(mixed $value): string {
+    return objval($value, User::class)->name();
+}
+```
 
 ```php
 class User {

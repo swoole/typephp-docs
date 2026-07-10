@@ -4,28 +4,19 @@ TypePHP 编译器支持绝大部分`PHP`的语法。不过由于`AOT`是静态�
 
 1. 不支持 `$$` 语法，局部变量为编译器符号，无法在运行时使用
 2. 不支持 `extract` 函数，无法运行时创建局部变量
-3. 禁止字面量字符串包含`\0`，例如`$a = "hello \0 world;"`，与`C++`不兼容
-4. 不支持参数数量不匹配的函数调用，例如某个函数的参数是`3`个，但是实际运行的代码传入了`4`个，这在`PHP`动态执行阶段是允许的，但是TypePHP 编译器无法支持
-5. 不支持 `Property Hook` 语法
-6. 不支持动态调用中自动推断引用，例如`Closure`闭包函数的参数是引用类型，在运行时才能确定，在TypePHP 编译器中无法自动判断，需要显式使用`refval()`函数或等价关键词方法`toRef()`转为引用
-7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`。此写法在 `ZendPHP` 中合法，但当前 TypePHP 编译器会在静态编译阶段禁止
-8. 所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许
-
-```php
-// 运行时才能得到函数的参数和返回值
-$fn = getClosure();
-// 编译器无法确定参数应该使用值还是引用，默认使用值传递
-$fn($a, $b, $c);
-// $c 将显式地使用引用传递，而不是值
-$fn($a, $b, refval($c));
-// 等价写法：toRef() 是 TypePHP 专有关键词方法
-$fn($a, $b, $c->toRef());
-```
+3. 不支持参数数量不匹配的函数调用，禁止使用 `func_get_args()` 动态获取参数，必须显示声明为变长参数
+4. 不支持 `PHP 8.4` 的 `Property Hook` 语法
+5. 不支持 `PHP 8.5` 的 `Pipe Operator` 语法
+6. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
+7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
 
 ## 不支持游离代码
 编译器要求所有代码必须在`function`内，不得存在游离代码，不支持内嵌  `HTML`，也就是`PHP`模版文件。这与`PHP`、`JavaScript`等脚本语言完全不同，而是与`C++`、`Java`、`Golang`、`Rust`一致。
 
 因此模版文件、配置文件不支持编译，需使用`include/require`动态加载，在`ZendPHP`中动态执行。
+
+## 源文件编码格式
+所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许。
 
 ## 类型不可变性
 TypePHP 编译器要求不得转换变量类型。例如一个变量声明为`Object`，则不允许作为字符串或数组来使用。这与 `PHP` 截然不同。
@@ -78,7 +69,7 @@ $user->roles = null; // TypePHP 不允许把 array 属性改成 null
 
 ### 具体对象类型属性
 
-具体类对象属性可以被 `unset()`，也可以设置为 `null`：
+具体类对象属性可以被 `unset()`，但 **不可赋值为 `null`**，除非属性声明为可空类型（`?Profile`）：
 
 ```php
 class Profile {}
@@ -89,15 +80,27 @@ class User {
 
 $user = new User();
 $user->profile = new Profile();
-$user->profile = null;  // 允许
+$user->profile = null;  // 不允许，编译错误：Cannot assign null
 unset($user->profile);  // 允许
 ```
 
-但是非空对象赋值时，`AOT` 要求对象的实际类型与属性声明的类完全一致。与 `ZendPHP` 不同，不能将子类对象赋值给基类属性。
+需要允许 `null` 时，应显式声明为可空类型并给定默认值：
+
+```php
+class User {
+    public ?Profile $profile = null;
+}
+
+$user = new User();
+$user->profile = null;  // 允许
+```
+
+非空对象赋值时，`AOT` 允许符合 `is-a` 关系的类型转换——子类对象可以赋值给基类属性，与 `ZendPHP` 行为一致。
 
 ```php
 class Base {}
 class Child extends Base {}
+class Other {}
 
 class Holder {
     public Base $object;
@@ -105,20 +108,47 @@ class Holder {
 
 $holder = new Holder();
 $holder->object = new Base();  // 允许
-$holder->object = new Child(); // AOT 不允许，必须精确匹配 Base
+$holder->object = new Child(); // 允许，Child is-a Base
+$holder->object = new Other(); // 不允许，Other is-not-a Profile
 ```
 
-这类代码在 `ZendPHP` 中是合法的，因为 PHP 的对象类型检查允许子类兼容父类；但 TypePHP 编译器为了保持对象属性布局和方法调用优化的确定性，要求具体对象属性的非空赋值必须使用声明类本身。
+但反向赋值是不允许的——不能将基类对象赋值给声明为子类的属性，因为基类实例并不满足子类的 `is-a` 关系。
+
+```php
+class Holder {
+    public Child $object;
+}
+
+$holder = new Holder();
+$holder->object = new Child(); // 允许
+$holder->object = new Base();  // 不允许，Base is-not-a Child
+```
+
+## 在动态调用中使用引用
+
+`TypePHP`无法在编译阶段确定动态调用的参数类型，因此无法自动推断参数是否为引用。原生调用或内置函数调用，可以自动推断参数类型，转为引用，无需用户显式指定。
+例如 `Closure` 闭包函数的参数是引用类型，在运行时才能确定，在 `TypePHP` 编译器中无法自动判断，需要显式使用 `refval()` 函数或等价关键词方法 `toRef()` 转为引用
+
+```php
+// 运行时才能得到函数的参数和返回值
+$fn = getClosure();
+// 编译器无法确定参数应该使用值还是引用，默认使用值传递
+$fn($a, $b, $c);
+// $c 将显式地使用引用传递，而不是值
+$fn($a, $b, refval($c));
+// 等价写法：toRef() 是 TypePHP 专有关键词方法
+$fn($a, $b, $c->toRef());
+```
 
 ## 数组 null 键
 
 在 `ZendPHP` 中，`$array[null] = 1` 等价于 `$array[''] = 1`，`null` 会被隐式转换为空字符串 `""` 作为键名。但在 TypePHP 编译器中，`$array[null]` 被当作 `$array[]` 追加操作处理，这与 `PHP` 行为不兼容。
 
-| 写法 | ZendPHP 行为 | TypePHP 编译器行为 |
-|------|-------------|--------------|
-| `$array[] = 1` | 追加元素 | 追加元素 |
+| 写法                 | ZendPHP 行为                    | TypePHP 编译器行为   |
+|--------------------|-------------------------------|-----------------|
+| `$array[] = 1`     | 追加元素                          | 追加元素            |
 | `$array[null] = 1` | `$array[''] = 1`（null 转为空字符串） | 追加元素（与 PHP 不兼容） |
-| `$array[''] = 1` | 空字符串键 | 空字符串键 |
+| `$array[''] = 1`   | 空字符串键                         | 空字符串键           |
 
 因此，如果需要显式使用空字符串作为键，应直接使用 `$array['']` 而非 `$array[null]`。
 
