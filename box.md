@@ -301,7 +301,7 @@ sources:
 #### 编译运行
 
 ```shell
-php bin/compiler.php examples/tetris-sdl/project.yml -O2 -o tetris
+./tpc examples/tetris-sdl/project.yml -O2 -o tetris
 ./tetris
 ```
 

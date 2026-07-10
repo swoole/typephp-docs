@@ -1,6 +1,6 @@
 # 性能分析
 
-AOT 编译器支持两种性能分析方式：编译器内建的 gperftools CPU Profiler，以及通用的 Linux `perf` 工具。
+TypePHP 编译器支持两种性能分析方式：编译器内建的 gperftools CPU Profiler，以及通用的 Linux `perf` 工具。
 
 ---
 
@@ -35,7 +35,7 @@ sudo yum install gperftools gperftools-devel
 **1. 编译时启用 profiler**
 
 ```bash
-php bin/compiler.php app.php --profile
+./tpc app.php --profile
 ```
 
 `--profile` 自动完成三项操作：
@@ -58,7 +58,7 @@ php bin/compiler.php app.php --profile
 
 ```bash
 # 默认 web 模式，自动打开浏览器展示火焰图
-php bin/compiler.php app.prof
+./tpc app.prof
 ```
 
 web 模式提供交互式火焰图（Flame Graph），支持缩放、搜索、聚焦，是推荐的查看方式。
@@ -92,7 +92,7 @@ pprof ./app app.prof
 
 ```mermaid
 graph LR
-    A["php bin/compiler.php app.php --profile"] --> B[编译: -DPPROF_ON=1 -lprofiler]
+    A["./tpc app.php --profile"] --> B[编译: -DPPROF_ON=1 -lprofiler]
     B --> C["./app"]
     C --> D["app.prof"]
     D --> E["pprof --web"]

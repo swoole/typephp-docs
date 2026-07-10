@@ -1,16 +1,15 @@
 ## 不支持的语法
 
-`AOT`编译器支持绝大部分`PHP`的语法。不过由于`AOT`是静态编译，某些依赖运行时确定的特性是无法支持的：
+TypePHP 编译器支持绝大部分`PHP`的语法。不过由于`AOT`是静态编译，某些依赖运行时确定的特性是无法支持的：
 
 1. 不支持 `$$` 语法，局部变量为编译器符号，无法在运行时使用
 2. 不支持 `extract` 函数，无法运行时创建局部变量
-3. 不支持 `yield`/`generator` 生成器语法，建议使用`fiber/swoole/swow`协程，`AOT`编译器支持协程
-4. 禁止字面量字符串包含`\0`，例如`$a = "hello \0 world;"`，与`C++`不兼容
-5. 不支持参数数量不匹配的函数调用，例如某个函数的参数是`3`个，但是实际运行的代码传入了`4`个，这在`PHP`动态执行阶段是允许的，但是`AOT`编译器无法支持
-6. 不支持 `Property Hook` 语法
-7. 不支持动态调用中自动推断引用，例如`Closure`闭包函数的参数是引用类型，在运行时才能确定，在`AOT`编译器中无法自动判断，需要显式使用`refval()`函数或等价关键词方法`toRef()`转为引用
-8. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`。此写法在 `ZendPHP` 中合法，但当前 `AOT` 编译器会在静态编译阶段禁止
-9. 所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许
+3. 禁止字面量字符串包含`\0`，例如`$a = "hello \0 world;"`，与`C++`不兼容
+4. 不支持参数数量不匹配的函数调用，例如某个函数的参数是`3`个，但是实际运行的代码传入了`4`个，这在`PHP`动态执行阶段是允许的，但是TypePHP 编译器无法支持
+5. 不支持 `Property Hook` 语法
+6. 不支持动态调用中自动推断引用，例如`Closure`闭包函数的参数是引用类型，在运行时才能确定，在TypePHP 编译器中无法自动判断，需要显式使用`refval()`函数或等价关键词方法`toRef()`转为引用
+7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`。此写法在 `ZendPHP` 中合法，但当前 TypePHP 编译器会在静态编译阶段禁止
+8. 所有 `.php` 文件必须使用 `UTF-8` 编码，其他编码（如 `GBK`、`Shift_JIS`、`ISO-8859-1`）不允许
 
 ```php
 // 运行时才能得到函数的参数和返回值
@@ -19,7 +18,7 @@ $fn = getClosure();
 $fn($a, $b, $c);
 // $c 将显式地使用引用传递，而不是值
 $fn($a, $b, refval($c));
-// 等价写法：toRef() 是 AOT 专有关键词方法
+// 等价写法：toRef() 是 TypePHP 专有关键词方法
 $fn($a, $b, $c->toRef());
 ```
 
@@ -29,7 +28,7 @@ $fn($a, $b, $c->toRef());
 因此模版文件、配置文件不支持编译，需使用`include/require`动态加载，在`ZendPHP`中动态执行。
 
 ## 类型不可变性
-`AOT`编译器要求不得转换变量类型。例如一个变量声明为`Object`，则不允许作为字符串或数组来使用。这与 `PHP` 截然不同。
+TypePHP 编译器要求不得转换变量类型。例如一个变量声明为`Object`，则不允许作为字符串或数组来使用。这与 `PHP` 截然不同。
 
 ```php
 $str = "hello world";
@@ -52,7 +51,7 @@ $o = new stdClass;
 $o = new ArrayObject;
 ```
 
-变量`$o`被声明为了`stdClass`类型，而在运行过程中又被转为`ArrayObject`，在`AOT`编译器中是不被允许的。将抛出下列编译错误：
+变量`$o`被声明为了`stdClass`类型，而在运行过程中又被转为`ArrayObject`，在TypePHP 编译器中是不被允许的。将抛出下列编译错误：
 
 ```bash
 Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
@@ -62,7 +61,7 @@ Fatal error: Cannot re-assign typed object `$o` from `TestObject` to `stdClass`
 
 ### 固定值类型属性
 
-`int`、`float`、`bool`、`string`、`array` 这 5 种属性会被 `AOT` 编译器当作固定值类型优化。属性槽位始终保持声明类型，不允许通过 `unset()` 或赋值 `null` 将其改成未初始化或空值状态。
+`int`、`float`、`bool`、`string`、`array` 这 5 种属性会被 TypePHP 编译器当作固定值类型优化。属性槽位始终保持声明类型，不允许通过 `unset()` 或赋值 `null` 将其改成未初始化或空值状态。
 
 ```php
 class User {
@@ -71,11 +70,11 @@ class User {
 }
 
 $user = new User();
-unset($user->id);   // AOT 不允许依赖 PHP 的属性 unset 语义
-$user->roles = null; // AOT 不允许把 array 属性改成 null
+unset($user->id);   // TypePHP 不允许依赖 PHP 的属性 unset 语义
+$user->roles = null; // TypePHP 不允许把 array 属性改成 null
 ```
 
-在 `ZendPHP` 中，`unset($obj->prop)` 可以让属性进入未初始化状态；在 `AOT` 编译器中，这等价于改变固定值类型属性的类型，因此不允许。若业务上需要空值语义，应显式声明为可空类型，例如 `public ?int $id = null;`。
+在 `ZendPHP` 中，`unset($obj->prop)` 可以让属性进入未初始化状态；在 TypePHP 编译器中，这等价于改变固定值类型属性的类型，因此不允许。若业务上需要空值语义，应显式声明为可空类型，例如 `public ?int $id = null;`。
 
 ### 具体对象类型属性
 
@@ -109,13 +108,13 @@ $holder->object = new Base();  // 允许
 $holder->object = new Child(); // AOT 不允许，必须精确匹配 Base
 ```
 
-这类代码在 `ZendPHP` 中是合法的，因为 PHP 的对象类型检查允许子类兼容父类；但 `AOT` 编译器为了保持对象属性布局和方法调用优化的确定性，要求具体对象属性的非空赋值必须使用声明类本身。
+这类代码在 `ZendPHP` 中是合法的，因为 PHP 的对象类型检查允许子类兼容父类；但 TypePHP 编译器为了保持对象属性布局和方法调用优化的确定性，要求具体对象属性的非空赋值必须使用声明类本身。
 
 ## 数组 null 键
 
-在 `ZendPHP` 中，`$array[null] = 1` 等价于 `$array[''] = 1`，`null` 会被隐式转换为空字符串 `""` 作为键名。但在 `AOT` 编译器中，`$array[null]` 被当作 `$array[]` 追加操作处理，这与 `PHP` 行为不兼容。
+在 `ZendPHP` 中，`$array[null] = 1` 等价于 `$array[''] = 1`，`null` 会被隐式转换为空字符串 `""` 作为键名。但在 TypePHP 编译器中，`$array[null]` 被当作 `$array[]` 追加操作处理，这与 `PHP` 行为不兼容。
 
-| 写法 | ZendPHP 行为 | AOT 编译器行为 |
+| 写法 | ZendPHP 行为 | TypePHP 编译器行为 |
 |------|-------------|--------------|
 | `$array[] = 1` | 追加元素 | 追加元素 |
 | `$array[null] = 1` | `$array[''] = 1`（null 转为空字符串） | 追加元素（与 PHP 不兼容） |
@@ -124,7 +123,7 @@ $holder->object = new Child(); // AOT 不允许，必须精确匹配 Base
 因此，如果需要显式使用空字符串作为键，应直接使用 `$array['']` 而非 `$array[null]`。
 
 ## 严格模式
-`AOT` 编译器不允许手动设置当前文件为非严格模式：`declare(strict_types=0)`，这会导致编译错误：
+TypePHP 编译器不允许手动设置当前文件为非严格模式：`declare(strict_types=0)`，这会导致编译错误：
 
 ```bash
 Fatal error: declare(strict_types=0) is not allowed, only strict_types=1 is supported
@@ -147,7 +146,7 @@ function foo() {
 
 
 ## 未定义变量
-在`ZendPHP`可以使用`isset()`判断变量是否存在。`AOT`编译器不支持这种写法。局部变量必须是先定义再使用。因此下面的代码是不被允许的。
+在`ZendPHP`可以使用`isset()`判断变量是否存在。TypePHP 编译器不支持这种写法。局部变量必须是先定义再使用。因此下面的代码是不被允许的。
 
 ```php
 // 变量没有定义，isset 返回 false
@@ -185,7 +184,7 @@ NULL
 ```
 
 ## 注解语法
-`AOT`编译器支持注解语法，但由于`ZendVM`自身的限制，不支持非空数组类型的注解参数。
+TypePHP 编译器支持注解语法，但由于`ZendVM`自身的限制，不支持非空数组类型的注解参数。
 
 ```php
 #[MyAttribute]
@@ -209,7 +208,7 @@ class Thing
 
 ## Trait 中 self 的处理
 
-在 `ZendPHP` 中，`trait` 的 `self::` 在编译时绑定到使用该 `trait` 的类（defining class）。而在 `AOT` 编译器中，`trait` 方法的 `self::` 会被当作 `static::`（延迟静态绑定）来处理，实际运行时会在被调用的类（called class）上解析。
+在 `ZendPHP` 中，`trait` 的 `self::` 在编译时绑定到使用该 `trait` 的类（defining class）。而在 TypePHP 编译器中，`trait` 方法的 `self::` 会被当作 `static::`（延迟静态绑定）来处理，实际运行时会在被调用的类（called class）上解析。
 
 这一差异会导致 `private` 可见性的常量或方法在子类中无法访问。因为 `private` 成员不会被子类继承，当 `static::` 在子类实例上解析时，无法找到父类中 `private` 的常量或方法。
 

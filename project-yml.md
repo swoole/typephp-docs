@@ -213,11 +213,11 @@ sources:
 
 ```shell
 # 编译单个文件
-php bin/compiler.php hello.php -O2
+./tpc hello.php -O2
 
 # 使用自定义 YAML 文件名
-php bin/compiler.php myproject.yml -O2
+./tpc myproject.yml -O2
 
 # 编译整个目录
-php bin/compiler.php myproject/ -O2 -o myapp
+./tpc myproject/ -O2 -o myapp
 ```

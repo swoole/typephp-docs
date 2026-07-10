@@ -56,7 +56,7 @@ $arr = bar(1, false, 3.14, "hello", [1, 2, 3,], new stdClass, null);
 ## 在 C++ 代码中调用 PHP 函数
 1. 函数名称必须添加 `php_` 前缀
 1. 必须包含 `php_func_decl.h` 头文件
-1. 仅限于被`AOT`编译器编译后的函数，若是动态函数、内置函数，无法直接调用
+1. 仅限于被TypePHP 编译器编译后的函数，若是动态函数、内置函数，无法直接调用
 
 例如在`PHP`中定义了一个函数：
 ```php
@@ -87,7 +87,7 @@ php::file_get_contents(file);
 ffi.enable=1
 ```
 
-`FFI::cdef()`、`FFI::new()`、`FFI\CData` 等对象仍由 PHP FFI 扩展在运行时管理。AOT 编译器不会把 FFI 调用直接翻译为 C/C++ 静态调用，因此这类代码主要遵循 ZendPHP 与 FFI 扩展自身的运行时语义。
+`FFI::cdef()`、`FFI::new()`、`FFI\CData` 等对象仍由 PHP FFI 扩展在运行时管理。TypePHP 编译器不会把 FFI 调用直接翻译为 C/C++ 静态调用，因此这类代码主要遵循 ZendPHP 与 FFI 扩展自身的运行时语义。
 
 建议：
 

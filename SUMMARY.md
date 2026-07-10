@@ -11,6 +11,7 @@
     * [Std 容器](std-containers.md)
     * [GC 机制](gc.md)
 * [兼容性](compatible.md)
+    * [Generator 限制](generator.md)
 * [执行过程](execution.md)
 * [性能](performance.md)
 * [专有特性](spec-feature.md)

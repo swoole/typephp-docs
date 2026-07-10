@@ -1,9 +1,9 @@
 # 安装软件
 下载软件包后，解压至当前目录后执行下列步骤完成安装。
 
-> 下载链接：<https://github.com/swoole/aot-compiler/releases/tag/v0.1.0>
+> 下载链接：<https://github.com/swoole/typephp/releases/tag/v0.1.0>
 
-`AOT`编译器支持`Windows`、`macOS`、`Linux`三种操作系统，支持`x86-64`或`ARM64`架构。编译生成的文件是对应操作系统下的原生可执行文件，而不是字节码或者其他中间指令码。
+TypePHP 编译器支持`Windows`、`macOS`、`Linux`三种操作系统，支持`x86-64`或`ARM64`架构。编译生成的文件是对应操作系统下的原生可执行文件，而不是字节码或者其他中间指令码。
 
 > 注意目前预览版仅支持 `PHP 8.4 +zts +embed`，请确保已安装
 
@@ -42,7 +42,7 @@ Options:
 
 
 ```shell
-cd swoole_compiler_v4/
+cd typephp/
 composer install
 ```
 
@@ -69,24 +69,24 @@ sudo vim /etc/ld.so.conf.d/swoole.conf
 
 加入：
 ```
-/data/swoole_compiler_v4/vendor/swoole/phpx/lib
+/data/typephp/vendor/swoole/phpx/lib
 /opt/php-8.4/lib/
 ```
 
 确认`.so`路径正确
 ```bash
 ldconfig -p|grep php
-	libphpx.so (libc6,x86-64) => /data/swoole_compiler_v4/vendor/swoole/phpx/lib/libphpx.so
+	libphpx.so (libc6,x86-64) => /data/typephp/vendor/swoole/phpx/lib/libphpx.so
 	libphp.so (libc6,x86-64) => /opt/php-8.4/lib/libphp.so
 ```
 
 ## 4. 查看编译器
 ```bash
-./swoole_compiler -h
-Swoole-Compiler (AOT) v0.1.0
+./tpc -h
+TypePHP v0.1.0
 
 USAGE:
-	./swoole_compiler <file/dir/project.yml> [options]
+	./tpc <file/dir/project.yml> [options]
 
 ARGUMENTS:
 	<file>    Input PHP file/directory/project.yml to compile
@@ -104,10 +104,10 @@ OPTIONS:
 	--no-literal-strings Disable literal strings optimization
 
 EXAMPLES:
-	./swoole_compiler hello.php
-	./swoole_compiler bench.php -O2
-	./swoole_compiler project/config.yml -O2
-	./swoole_compiler my-ext/ -O2 -o myapp -m ext
-	./swoole_compiler app.php -O3 -o myapp -v
+	./tpc hello.php
+	./tpc bench.php -O2
+	./tpc project/config.yml -O2
+	./tpc my-ext/ -O2 -o myapp -m ext
+	./tpc app.php -O3 -o myapp -v
 ```
 

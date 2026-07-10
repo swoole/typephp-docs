@@ -1,10 +1,10 @@
 # 类型系统
 
-`AOT` 编译器在标准 `PHP` 类型之外扩展了高精度数值类型和强类型容器，并在编译期进行类型推断和检查。本文档介绍编译器支持的所有类型、类型转换方法及使用限制。
+TypePHP 编译器在标准 `PHP` 类型之外扩展了高精度数值类型和强类型容器，并在编译期进行类型推断和检查。本文档介绍编译器支持的所有类型、类型转换方法及使用限制。
 
 ## 1. 类型总览
 
-AOT 编译器支持以下 C++ 存储类型（`php::*`）：
+TypePHP 编译器支持以下 C++ 存储类型（`php::*`）：
 
 | 类型常量 | C++ 类型 | 对应 PHP 类型 | 说明 |
 |---------|----------|--------------|------|
@@ -63,13 +63,13 @@ function sum(int $n): int {
 | `null` | `php::Var` | 退化为动态类型 |
 | `callable` | `php::Var` | 编译器无法追踪 |
 | `iterable` | `php::Var` | 编译器无法追踪 |
-| `stream` | `php::Stream` | AOT 专有 |
+| `stream` | `php::Stream` | TypePHP 专有 |
 
 > **注意**：`null`、`callable`、`iterable` 类型声明在编译阶段会退化为 `php::Var`，无法享受原生类型的性能优势。
 
 ## 3. 高精度数值类型
 
-AOT 编译器提供三种高精度数值类型，详见 [math.md](math.md)。
+TypePHP 编译器提供三种高精度数值类型，详见 [math.md](math.md)。
 
 ### 3.1 构造方式
 
@@ -107,7 +107,7 @@ Big* 类型是**不可变的**（immutable）——每次运算返回新值，�
 
 ## 4. Std 强类型容器
 
-AOT 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `native_types::type_int` 和 `complex_types::type_string`。
+TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `native_types::type_int` 和 `complex_types::type_string`。
 
 ```php
 declare(strict_types=1);
@@ -378,7 +378,7 @@ PHP 的联合类型（`int|float`、`int|string` 等）、交叉类型（`A&B`�
 
 ### 7.10 对象属性类型固定，固定值类型不能 unset 或改成 null
 
-AOT 编译器要求对象属性始终保持声明时的类型，不能在运行过程中改成其他类型。
+TypePHP 编译器要求对象属性始终保持声明时的类型，不能在运行过程中改成其他类型。
 
 ```php
 declare(strict_types=1);

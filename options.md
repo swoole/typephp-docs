@@ -1,11 +1,11 @@
 ## 编译参数
 
-AOT 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) 两种方式指定编译选项。命令行参数优先级最高，其次是 YAML 配置，最后是默认值。
+TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) 两种方式指定编译选项。命令行参数优先级最高，其次是 YAML 配置，最后是默认值。
 
 ### 用法
 
 ```shell
-php bin/compiler.php <file/dir/config.yml> [options]
+./tpc <file/dir/config.yml> [options]
 ```
 
 ## 命令行参数
@@ -18,7 +18,7 @@ php bin/compiler.php <file/dir/config.yml> [options]
 - `-O3`：最高优化级别，激进的函数内联和向量化
 
 ```shell
-php bin/compiler.php app.php -O2
+./tpc app.php -O2
 ```
 
 ### `-o, --output <file>` — 输出文件路径
@@ -28,8 +28,8 @@ php bin/compiler.php app.php -O2
 `--output` 可以只指定文件名，也可以包含目录。YAML 配置中的 `output` 与该参数等价；`name` 只设置文件名，不改变输出目录。
 
 ```shell
-php bin/compiler.php src/ -o myapp
-php bin/compiler.php src/ -o build/myapp
+./tpc src/ -o myapp
+./tpc src/ -o build/myapp
 ```
 
 ### `-m, --mode <mode>` — 构建模式
@@ -38,7 +38,7 @@ php bin/compiler.php src/ -o build/myapp
 - `ext`：编译为 PHP 扩展（`.so`/`.dll`）
 
 ```shell
-php bin/compiler.php myext/ -m ext -o myext
+./tpc myext/ -m ext -o myext
 ```
 
 ### `-d, --debug` — 调试模式
@@ -46,7 +46,7 @@ php bin/compiler.php myext/ -m ext -o myext
 自动禁用优化并添加调试符号（`-g`），便于使用 GDB/LLDB 调试生成的二进制文件。
 
 ```shell
-php bin/compiler.php app.php -d
+./tpc app.php -d
 ```
 
 ### `--sanitize <type>` — Sanitizer
@@ -57,7 +57,7 @@ php bin/compiler.php app.php -d
 - `undefined` — UndefinedBehaviorSanitizer（整数溢出、空指针等）
 
 ```shell
-php bin/compiler.php app.php --sanitize=address
+./tpc app.php --sanitize=address
 ```
 
 ### `--profile` — CPU 性能分析
@@ -65,14 +65,14 @@ php bin/compiler.php app.php --sanitize=address
 基于 gperftools（仅 Linux）。在生成的二进制中插入性能分析探针并自动链接 `-lprofiler`，运行后生成 `{target}.prof` 数据文件。启用后自动强制重编译 misc 文件以确保编译宏生效。
 
 ```shell
-php bin/compiler.php app.php --profile
+./tpc app.php --profile
 ./app                                    # 运行后生成 app.prof
 ```
 
 使用编译器内置的 pprof 分析功能（默认 web 模式，自动打开浏览器）：
 
 ```shell
-php bin/compiler.php app.prof
+./tpc app.prof
 ```
 
 ### `-j, --job <num>` — 并行编译任务数
@@ -80,7 +80,7 @@ php bin/compiler.php app.prof
 控制同时编译的 C++ 文件数量，类似 `make -j`。默认值为 `4`。在 CPU 核心数较多的机器上可适当增大。
 
 ```shell
-php bin/compiler.php app.php -j8
+./tpc app.php -j8
 ```
 
 ### `--no-literal-strings` — 禁用字符串字面量优化
@@ -88,7 +88,7 @@ php bin/compiler.php app.php -j8
 默认情况下，编译器将字面量字符串优化为 `const char*` 指针以提升性能。某些场景下（如需要 `zend_string` 兼容性）可能需要关闭此优化。
 
 ```shell
-php bin/compiler.php app.php --no-literal-strings
+./tpc app.php --no-literal-strings
 ```
 
 ### `-I <dir>, --include-path <dir>` — C++ 头文件搜索路径（可重复）
@@ -99,10 +99,10 @@ php bin/compiler.php app.php --no-literal-strings
 
 ```shell
 # 添加多个 include 目录
-php bin/compiler.php app.php -I /opt/mylib/include -I ../shared/headers -O2
+./tpc app.php -I /opt/mylib/include -I ../shared/headers -O2
 
 # 长格式等价写法
-php bin/compiler.php app.php --include-path /opt/mylib/include --include-path ../shared/headers
+./tpc app.php --include-path /opt/mylib/include --include-path ../shared/headers
 ```
 
 ### `-D <macro>, --define <macro>` — C++ 预处理器宏（可重复）
@@ -113,10 +113,10 @@ php bin/compiler.php app.php --include-path /opt/mylib/include --include-path ..
 
 ```shell
 # 定义宏控制功能开关
-php bin/compiler.php app.php -D ENABLE_LOGGING=1 -D DEBUG_LEVEL=3 -O2
+./tpc app.php -D ENABLE_LOGGING=1 -D DEBUG_LEVEL=3 -O2
 
 # 长格式等价写法
-php bin/compiler.php app.php --define ENABLE_LOGGING=1 --define DEBUG_LEVEL=3
+./tpc app.php --define ENABLE_LOGGING=1 --define DEBUG_LEVEL=3
 ```
 
 ### `--march <arch>` — 目标 CPU 指令集
@@ -130,10 +130,10 @@ php bin/compiler.php app.php --define ENABLE_LOGGING=1 --define DEBUG_LEVEL=3
 
 ```shell
 # 优化当前机器
-php bin/compiler.php app.php --march=native -O2
+./tpc app.php --march=native -O2
 
 # 指定目标架构
-php bin/compiler.php app.php --march=x86-64-v3 -O2
+./tpc app.php --march=x86-64-v3 -O2
 ```
 
 > 仅适用 GCC/Clang，MSVC 请使用 `--cxx-flags`。
@@ -149,10 +149,10 @@ php bin/compiler.php app.php --march=x86-64-v3 -O2
 
 ```shell
 # 在 x86-64 主机上编译 ARM64 Linux 二进制
-php bin/compiler.php app.php --target-platform aarch64-linux-gnu -O2
+./tpc app.php --target-platform aarch64-linux-gnu -O2
 
 # 交叉编译到 Windows (MinGW)
-php bin/compiler.php app.php --target-platform x86_64-w64-mingw32 -O2
+./tpc app.php --target-platform x86_64-w64-mingw32 -O2
 ```
 
 > **注意**：GCC 交叉编译通常还需要安装对应的交叉编译工具链（如 `g++-aarch64-linux-gnu`）。Clang 自带交叉编译支持，只需指定 `--target` 即可。可通过 YAML 配置 `cpp-compiler` 指定交叉编译器路径。
@@ -166,7 +166,7 @@ php bin/compiler.php app.php --target-platform x86_64-w64-mingw32 -O2
 
 ```shell
 # 生产环境启用 LTO
-php bin/compiler.php app.php -O2 --lto
+./tpc app.php -O2 --lto
 ```
 
 ### `--format` — clang-format 代码格式化
@@ -175,7 +175,7 @@ php bin/compiler.php app.php -O2 --lto
 
 ```shell
 # 启用代码格式化
-php bin/compiler.php app.php --format
+./tpc app.php --format
 ```
 
 ### `-l <lib>, --link-lib <lib>` — 链接库（可重复）
@@ -184,10 +184,10 @@ php bin/compiler.php app.php --format
 
 ```shell
 # 链接多个库
-php bin/compiler.php app.php -lcurl -lssl -lcrypto -O2
+./tpc app.php -lcurl -lssl -lcrypto -O2
 
 # 长格式等价写法
-php bin/compiler.php app.php --link-lib curl --link-lib ssl --link-lib crypto
+./tpc app.php --link-lib curl --link-lib ssl --link-lib crypto
 ```
 
 ### `-L <dir>, --link-path <dir>` — 库搜索路径（可重复）
@@ -196,10 +196,10 @@ php bin/compiler.php app.php --link-lib curl --link-lib ssl --link-lib crypto
 
 ```shell
 # 添加库搜索路径并链接
-php bin/compiler.php app.php -L/usr/local/lib -L/opt/custom/lib -lmycustom -O2
+./tpc app.php -L/usr/local/lib -L/opt/custom/lib -lmycustom -O2
 
 # 长格式等价写法
-php bin/compiler.php app.php --link-path /usr/local/lib --link-path /opt/custom/lib
+./tpc app.php --link-path /usr/local/lib --link-path /opt/custom/lib
 ```
 
 ### `-f, --force` — 强制重新编译
@@ -207,7 +207,7 @@ php bin/compiler.php app.php --link-path /usr/local/lib --link-path /opt/custom/
 即使存在编译缓存也强制重新编译所有文件。
 
 ```shell
-php bin/compiler.php app.php -f
+./tpc app.php -f
 ```
 
 ### `--cxx-std <version>` — C++ 标准版本
@@ -215,7 +215,7 @@ php bin/compiler.php app.php -f
 默认使用 `c++17`。如果你的代码或依赖的库需要特定的 C++ 版本，可通过此参数指定。
 
 ```shell
-php bin/compiler.php app.php --cxx-std=c++20
+./tpc app.php --cxx-std=c++20
 ```
 
 ### `--build-dir <dir>` — 构建目录
@@ -223,7 +223,7 @@ php bin/compiler.php app.php --cxx-std=c++20
 设置生成的 C++ 代码（`.cc`）、头文件、目标文件（`.o`）等构建中间产物的存放目录。默认目录为 `<项目根>/build`。
 
 ```shell
-php bin/compiler.php app.php --build-dir /tmp/mybuild
+./tpc app.php --build-dir /tmp/mybuild
 ```
 
 ### `--dry` — 干运行模式
@@ -231,7 +231,7 @@ php bin/compiler.php app.php --build-dir /tmp/mybuild
 仅执行 PHP → C++ 代码的转译步骤，生成所有 C++ 源文件，但**不执行**编译和链接。适用于仅需审查生成的 C++ 代码或预先检查转译结果的场景。
 
 ```shell
-php bin/compiler.php app.php --dry
+./tpc app.php --dry
 ```
 
 ### `--no-console` — 隐藏控制台窗口（仅 Windows）
@@ -239,7 +239,7 @@ php bin/compiler.php app.php --dry
 Windows 平台下，使用 `/SUBSYSTEM:WINDOWS` 链接，程序启动时不显示控制台窗口，适用于 GUI 应用程序。
 
 ```shell
-php bin/compiler.php gui-app.php --no-console
+./tpc gui-app.php --no-console
 ```
 
 
@@ -248,7 +248,7 @@ php bin/compiler.php gui-app.php --no-console
 禁用终端的 ANSI 颜色转义序列，所有输出为纯文本。适用于日志重定向、不支持颜色的终端环境或 CI/CD 管道。
 
 ```shell
-php bin/compiler.php app.php --no-color -O2
+./tpc app.php --no-color -O2
 ```
 
 ### `-v, --version` — 显示版本信息

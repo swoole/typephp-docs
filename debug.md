@@ -1,6 +1,6 @@
 # 调试指南
 
-AOT 编译器将 PHP 代码翻译为 C++ 后编译成原生二进制，因此调试工具链基于 GDB/LLDB，不支持 Xdebug、Zend 断点等运行时调试器。
+TypePHP 编译器将 PHP 代码翻译为 C++ 后编译成原生二进制，因此调试工具链基于 GDB/LLDB，不支持 Xdebug、Zend 断点等运行时调试器。
 
 ---
 
@@ -28,10 +28,10 @@ cmake . -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
 ```bash
 # 生成可调试的二进制文件
-php bin/compiler.php app.php --debug
+./tpc app.php --debug
 
 # 使用 project.yml
-php bin/compiler.php project.yml --debug
+./tpc project.yml --debug
 ```
 
 `--debug` 自动设置 `-O0` 并追加 `-g` 编译标志，关闭所有优化。
@@ -48,7 +48,7 @@ php bin/compiler.php project.yml --debug
 
 ```bash
 # ASAN + 调试符号，快速定位内存错误
-php bin/compiler.php app.php --debug --sanitize=address
+./tpc app.php --debug --sanitize=address
 
 ```
 
@@ -235,7 +235,7 @@ Box 对象不支持直接用 `print` 查看，需要通过静态方法转换：
 
 ```bash
 # 编译时启用
-php bin/compiler.php app.php --sanitize=address
+./tpc app.php --sanitize=address
 
 # 环境变量控制行为
 export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1
@@ -299,7 +299,7 @@ gdb ./app
 (gdb) info locals
 
 # 2. 启用 ASAN 重新构建
-php bin/compiler.php app.php --sanitize=address
+./tpc app.php --sanitize=address
 ./app
 ```
 
@@ -312,7 +312,7 @@ php bin/compiler.php app.php --sanitize=address
 
 ### 2. 编译错误
 
-AOT 编译器在翻译阶段就可能报错（比 C++ 编译器更早），常见编译期错误：
+TypePHP 编译器在翻译阶段就可能报错（比 C++ 编译器更早），常见编译期错误：
 
 | 错误 | 原因 |
 |------|------|
@@ -326,7 +326,7 @@ AOT 编译器在翻译阶段就可能报错（比 C++ 编译器更早），常�
 
 AOT 二进制与 ZendPHP 的行为差异（非 bug，是 AOT 编译的固有特性）：
 
-- **类型错误是硬错误** — ZendPHP 会隐式转换类型，AOT 编译器直接报 Fatal Error
+- **类型错误是硬错误** — ZendPHP 会隐式转换类型，TypePHP 编译器直接报 Fatal Error
 - **除法行为** — `$a / $b` 在 AOT 中与 C++ 行为一致：整数除法结果仍为整数（除非 `any()`）
 - **字符串拼接** — 非字符串与字符串拼接需要显式转换，无自动 `toString()`
 - **未定义变量** — ZendPHP 发 Warning，AOT 直接编译报错
@@ -382,7 +382,7 @@ gdb ./app
 
 ## 多线程 / 协程调试
 
-AOT 编译器支持 Swoole/Swow 协程。协程调试时注意：
+TypePHP 编译器支持 Swoole/Swow 协程。协程调试时注意：
 
 ```bash
 # 查看所有线程

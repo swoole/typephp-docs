@@ -4,11 +4,11 @@
 
 在实际执行中，一个 `AOT` 编译后的程序会运行在一个**混合执行环境**中。
 静态编译的用户代码以原生机器指令执行，但与 PHP 生态的深度交互（内置函数、扩展、动态加载）仍然依赖 `Zend Engine` 运行时。
-因此，`AOT` 程序的执行并非"全静态"，而是三种执行方式协同工作的结果：
+因此，TypePHP 程序的执行并非"全静态"，而是三种执行方式协同工作的结果：
 
 ```mermaid
 graph TD
-    A["⚡ AOT 编译产物<br/>（原生机器码）"] --> B{"调用目标？"}
+    A["⚡ TypePHP 编译产物<br/>（原生机器码）"] --> B{"调用目标？"}
     
     B -->|"用户 PHP 代码<br/>（AOT 编译）"| C["<b>模式 1：静态编译执行</b><br/>直接 C/C++ 函数调用<br/>类型推断 → 原生类型运算<br/>无 zval 装箱 / 无 Opcode"]
     
@@ -29,7 +29,7 @@ graph TD
     style H fill:#fecaca
 ```
 
-> **核心思想**：AOT 编译器尽可能将 PHP 代码提升为**模式 1**（原生机器码），以获取最大性能收益。无法静态编译的特性（如 `eval()`、动态类定义）回退到**模式 3**（ZendVM 解释），但这类回退在实际项目中应尽量避免。
+> **核心思想**：TypePHP 编译器尽可能将 PHP 代码提升为**模式 1**（原生机器码），以获取最大性能收益。无法静态编译的特性（如 `eval()`、动态类定义）回退到**模式 3**（ZendVM 解释），但这类回退在实际项目中应尽量避免。
 
 ### 1. 静态编译的用户代码
 
@@ -59,7 +59,7 @@ function calculate(int $a, int $b): int {
 
 PHP 标准库（如 `explode()`、`array_map()`、`preg_match()`）和第三方扩展（如 `json_decode()`、`curl_init()`）由 C 语言编写，编译在 `.so` / `.dll` 扩展文件中。它们的实现在 Zend Engine 内部，不存在 AOT 可静态链接的版本。
 
-调用这些函数时，AOT 编译器生成代码通过 **ZendAPI** 的 `zend_call_function()` 直接调用其底层的 C 函数指针：
+调用这些函数时，TypePHP 编译器生成代码通过 **ZendAPI** 的 `zend_call_function()` 直接调用其底层的 C 函数指针：
 
 ```
 用户代码 (AOT 机器码)
@@ -85,9 +85,9 @@ PHP 标准库（如 `explode()`、`array_map()`、`preg_match()`）和第三方�
 
 > **注意**：过度依赖 `include`/`eval` 会稀释 AOT 编译的性能收益。最佳实践是将核心业务逻辑放在静态编译文件中，仅将配置加载、路由分发等必要场景留给动态加载。
 
-## AOT 编译器的执行方式
+## TypePHP 编译器的执行方式
 
-AOT 编译器将 PHP 编译为 C++ 再编译为原生机器码，分为 `4` 个阶段。整个编译流程完全离线完成，运行时不再需要解析、编译或解释 PHP 代码。
+TypePHP 编译器将 PHP 编译为 C++ 再编译为原生机器码，分为 `4` 个阶段。整个编译流程完全离线完成，运行时不再需要解析、编译或解释 PHP 代码。
 
 ### 整体执行流程
 
@@ -136,9 +136,9 @@ graph TD
 **1.1 入口解析**
 
 支持三种入口模式：
-- **单文件**：`php bin/compiler.php app.php`
-- **目录**：`php bin/compiler.php src/`，递归发现所有源文件
-- **YAML 配置**：`php bin/compiler.php project.yml`，从配置文件加载项目设置
+- **单文件**：`./tpc app.php`
+- **目录**：`./tpc src/`，递归发现所有源文件
+- **YAML 配置**：`./tpc project.yml`，从配置文件加载项目设置
 
 **1.2 文件发现**
 
@@ -566,7 +566,7 @@ graph TD
 - **动态特性支持**：`include`、`eval`、`create_function()` 等可在运行时触发新的编译
 - **`zval` 开销**：所有值（包括整数、浮点）都装箱在 `zval` 结构体中，每条 Opcode 都涉及类型检查和引用计数
 
-## ZendVM vs AOT 编译器对比
+## ZendVM vs TypePHP 编译器对比
 
 ```mermaid
 graph LR
@@ -579,7 +579,7 @@ graph LR
         Z5 -.->|"每次请求重复"| Z2
     end
 
-    subgraph AOT["AOT 编译器（编译执行）"]
+    subgraph AOT["TypePHP 编译器（编译执行）"]
         direction TB
         A1["PHP 源码"] --> A2["预处理<br/>（符号扫描）"]
         A2 --> A3["转换为 C++<br/>（类型推断 + 代码生成）"]
@@ -592,7 +592,7 @@ graph LR
     style A6 fill:#86efac
 ```
 
-| 维度 | ZendVM | AOT 编译器 |
+| 维度 | ZendVM | TypePHP 编译器 |
 |------|--------|-----------|
 | 翻译方式 | 每请求逐行解释 Opcode | 编译期一次性翻译为机器码 |
 | 运行时依赖 | 需要 PHP 解释器 | 独立二进制，仅依赖 phpx 运行时库 |

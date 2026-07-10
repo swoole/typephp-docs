@@ -3,12 +3,12 @@
 ## 单文件
 
 ```bash
-./swoole_compiler your_path/file.php
+./tpc your_path/file.php
 ```
 ## 目录
 
 ```bash
-./swoole_compiler my_project/
+./tpc my_project/
 ```
 
 编译器将递归遍历整个目录，查找`.php`文件，并逐个编译为`.o`目标文件，最终连接在一起生成可执行文件。
@@ -18,8 +18,8 @@
 配置文件名称不固定，由命令行参数传入：
 
 ```bash
-./bin/compiler.php myproject.yml
-./swoole_compiler myproject.yml
+./tpc myproject.yml
+./tpc myproject.yml
 ```
 
 ```yaml
