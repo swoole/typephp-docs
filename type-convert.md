@@ -38,6 +38,8 @@ function convert_basic(mixed $input): void
 - **有 `toArray()` 方法**：调用该方法，返回值必须是数组，否则抛出异常
 - **无 `toArray()` 方法**：沿用原有逻辑，将对象的属性表转为数组
 
+> `toArray()` 是 TypePHP 保留关键词方法，按零参数转换语义处理。不要定义需要参数的同名业务方法；这类调用不会按普通对象方法传递参数。
+
 ```php
 class User {
     public int $id;

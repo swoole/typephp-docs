@@ -26,7 +26,7 @@ echo $array['object']->toObject(User::class)->getName();
 | `toFloat()` | `php::Float` | `php::toFloat($expr)` | 转为浮点数 |
 | `toString()` | `php::Str` | `php::toString($expr)` | 转为字符串 |
 | `toBool()` | `php::Bool` | `php::toBool($expr)` | 转为布尔值 |
-| `toArray()` | `php::Array` | `php::toArray($expr)` | 转为数组；若 receiver 为对象且有 `toArray()` 方法，优先调用该方法 |
+| `toArray()` | `php::Array` | `php::toArray($expr)` | 保留的零参数转换方法；若 receiver 为对象且有零参数 `toArray()`，转换 helper 会调用它 |
 | `toAny()` | `php::Var` | `php::Var($expr)` | 降级为动态类型；等价于 `any($expr)` |
 | `toRef()` | `php::Ref` | `$expr.toReference()` / `php::toReference(...)` | 显式转为引用；等价于 `refval($expr)` |
 | `toStream()` | `php::Stream` | `php::toStream($expr)` | 转为流类型 |

@@ -1,14 +1,34 @@
-## 不支持的语法
+## 兼容性分类
 
-TypePHP 编译器支持绝大部分`PHP`的语法。不过由于`AOT`是静态编译，某些依赖运行时确定的特性是无法支持的：
+TypePHP 与 ZendPHP 的差异分为三类：
+
+- **TypePHP 设计规则**：为了静态类型、固定布局和可预测性能而有意采用的语义，不视为缺陷。
+- **部分支持**：主要场景可用，但动态边界或少数语义与 ZendPHP 不完全一致。
+- **暂未支持**：技术上可以实现，但当前编译器尚未提供。
+
+## 不支持或受限的语法
+
+TypePHP 编译器支持绝大部分 `PHP` 语法。由于 `AOT` 采用静态编译，以下特性属于 TypePHP 设计规则、部分支持或当前尚未实现：
 
 1. 不支持 `$$` 语法，局部变量为编译器符号，无法在运行时使用
 2. 不支持 `extract` 函数，无法运行时创建局部变量
-3. 不支持参数数量不匹配的函数调用，禁止使用 `func_get_args()` 动态获取参数，必须显示声明为变长参数
-4. 不支持 `PHP 8.4` 的 `Property Hook` 语法
-5. 不支持 `PHP 8.5` 的 `Pipe Operator` 语法
-6. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
+3. TypePHP 要求函数调用参数数量与声明匹配；`func_get_args()` 不会使函数隐式接受额外参数，需要显式声明 `...$args`
+4. 不支持对 Property Hook 属性取引用；普通读写、动态对象读写以及 `private(set)` / `protected(set)` 已支持
+5. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
+6. 不支持闭包和箭头函数的引用参数及按引用返回
 7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
+
+## 当前已经支持的特性
+
+以下项目曾经是历史限制，现在不应再作为不兼容项：
+
+- 构造函数、函数和方法的命名参数
+- 多层空安全链 `?->`，包括链中间为 `null` 时的短路和参数惰性求值
+- PHP 8.4 Property Hooks；在 PHP 8.2～8.4 后端会降级为 getter/setter 和属性 handler
+- 动态属性的基本读写；PHP 8.2+ 对动态属性产生的 `Deprecated` 仍遵循 PHP 自身规则
+- 抽象类中的具体方法可以由子类通过 `parent::method()` 调用
+
+TypePHP/Phpx 当前支持 PHP 8.2～8.5 构建。新版本语法是否可用于特定后端，由编译器的语法降级能力决定，而不是由后端 ZendVM 版本单独决定。
 
 ## 不支持游离代码
 编译器要求所有代码必须在`function`内，不得存在游离代码，不支持内嵌  `HTML`，也就是`PHP`模版文件。这与`PHP`、`JavaScript`等脚本语言完全不同，而是与`C++`、`Java`、`Golang`、`Rust`一致。
@@ -67,6 +87,8 @@ $user->roles = null; // TypePHP 不允许把 array 属性改成 null
 
 在 `ZendPHP` 中，`unset($obj->prop)` 可以让属性进入未初始化状态；在 TypePHP 编译器中，这等价于改变固定值类型属性的类型，因此不允许。若业务上需要空值语义，应显式声明为可空类型，例如 `public ?int $id = null;`。
 
+固定值类型属性使用堆内固定槽位。未显式初始化时，TypePHP 使用对应类型的零值，例如 `int` 为 `0`、`bool` 为 `false`。因此未初始化 typed property 及 `??` 的行为不保证与 ZendPHP 的 uninitialized 状态一致；这是 TypePHP 的固定布局语义。
+
 ### 具体对象类型属性
 
 具体类对象属性可以被 `unset()`，但 **不可赋值为 `null`**，除非属性声明为可空类型（`?Profile`）：
@@ -124,6 +146,24 @@ $holder->object = new Child(); // 允许
 $holder->object = new Base();  // 不允许，Base is-not-a Child
 ```
 
+### 父子类不能声明同名 private 属性
+
+对于 `public` 和 `protected` 属性，TypePHP 沿用 PHP 的继承规则：子类同名声明描述的是同一个继承 property slot，必须满足类型、可见性和 `readonly` 的兼容性要求。
+
+但 TypePHP 不支持子类用同名 `private` 属性隐藏父类 `private` 属性。ZendPHP 会为这种写法创建两个独立属性槽位；为保持属性解析、clone 和 typed property 语义清晰，编译器会在编译阶段拒绝它。
+
+```php
+class ParentBox {
+    private int $id = 1;
+}
+
+class ChildBox extends ParentBox {
+    private string $id = 'child'; // 不允许：会隐藏 ParentBox::$id
+}
+```
+
+请改用不同的属性名；如果子类需要复用父类状态，应将父类属性设计为 `protected`，或通过父类提供的方法访问。
+
 ## 在动态调用中使用引用
 
 `TypePHP`无法在编译阶段确定动态调用的参数类型，因此无法自动推断参数是否为引用。原生调用或内置函数调用，可以自动推断参数类型，转为引用，无需用户显式指定。
@@ -139,6 +179,12 @@ $fn($a, $b, refval($c));
 // 等价写法：toRef() 是 TypePHP 专有关键词方法
 $fn($a, $b, $c->toRef());
 ```
+
+闭包和箭头函数目前也不能声明引用参数或按引用返回。此限制与 `use (&$value)` 引用捕获不同；引用捕获已经支持。
+
+## 保留关键词方法
+
+`toInt()`、`toString()`、`toArray()` 等是 TypePHP 保留关键词方法，其优先级高于普通对象方法解析。对象上的零参数 `toArray()` 可由转换 helper 调用；不要定义需要参数的同名对象方法，因为调用参数不会按普通对象方法语义处理。需要业务序列化方法时应使用 `serializeNode()` 等非保留名称。
 
 ## 数组 null 键
 
@@ -214,7 +260,7 @@ NULL
 ```
 
 ## 注解语法
-TypePHP 编译器支持注解语法，但由于`ZendVM`自身的限制，不支持非空数组类型的注解参数。
+TypePHP 编译器支持注解语法，但当前不支持非空数组和 `new` 表达式作为注解参数。
 
 ```php
 #[MyAttribute]
