@@ -885,18 +885,18 @@ echo $x->contains("test");
 
 ### 14.1 命名约定
 
-格式：`{类型前缀}_{snake_case方法名}`
+格式：`{类型前缀}_{方法名}`。方法名部分必须与调用名称一致，不会自动转换命名风格。
 
 | 类型 | 前缀 | 示例 |
 |------|------|------|
-| Int | `int_` | `int_is_prime` → `$a->isPrime()` |
+| Int | `int_` | `int_is_prime` → `$a->is_prime()` |
 | Float | `float_` | `float_normalize` → `$f->normalize()` |
 | Bool | `bool_` | `bool_toggle` → `$b->toggle()` |
 | String | `str_` | `str_capitalize` → `$s->capitalize()` |
 | Array | `array_` | `array_flatten` → `$arr->flatten()` |
 | Stream | `stream_` | `stream_rewind` → `$fp->rewind()` |
-| BigInt | `bigint_` | `bigint_is_probable_prime` → `$a->isProbablePrime()` |
-| Decimal | `decimal_` | `decimal_round_to` → `$d->roundTo()` |
+| BigInt | `bigint_` | `bigint_is_probable_prime` → `$a->is_probable_prime()` |
+| Decimal | `decimal_` | `decimal_round_to` → `$d->round_to()` |
 | BigFloat | `bigfloat_` | `bigfloat_truncate` → `$bf->truncate()` |
 
 ### 14.2 实现示例
@@ -908,7 +908,7 @@ use native_types;
 
 /**
  * 扩展方法：判断 Int 是否为素数
- * 命名：类型前缀 int_ + snake_case 方法名 is_prime
+ * 命名：类型前缀 int_ + 方法名 is_prime
  */
 function int_is_prime(int $n): bool {
     if ($n < 2) return false;
@@ -920,7 +920,7 @@ function int_is_prime(int $n): bool {
 
 /**
  * 扩展方法：数组扁平化
- * 命名：类型前缀 array_ + snake_case 方法名 flatten
+ * 命名：类型前缀 array_ + 方法名 flatten
  */
 function array_flatten(array $arr): array {
     $result = [];
@@ -931,9 +931,9 @@ function array_flatten(array $arr): array {
 }
 
 function main(): void {
-    // 自动发现：int_is_prime → $n->isPrime()
+    // 名称一致：int_is_prime → $n->is_prime()
     $n = 97;
-    if ($n->isPrime()) {
+    if ($n->is_prime()) {
         echo "$n is prime\n";
     }
 
@@ -949,7 +949,8 @@ function main(): void {
 
 - 函数**第一个参数**是接收者（`receiver`），从方法调用中自动传入，参数类型必须与扩展方法对应的类型一致，例如：`array_flatten`扩展方法，第一个参数的类型比如是`array`
 - 需要先定义函数再调用——编译器在分析阶段发现函数，转换阶段使用它们
-- 方法的驼峰命名会**自动转为下划线命名**：`isPrime` → `is_prime`，`flattenNestedArray` → `flatten_nested_array`
+- 方法名必须一致：`int_is_prime()` 对应 `$n->is_prime()`，`int_isPrime()` 对应 `$n->isPrime()`
+- 字母大小写不敏感，但下划线位置必须一致
 
 ---
 
@@ -959,19 +960,18 @@ function main(): void {
 
 ### 15.1 命名约定
 
-在根命名空间中定义 `__` 开头的函数，通过驼峰转下划线命名后，即可作为任意类型上的方法调用：
+在根命名空间中定义 `__` 开头的函数，即可作为任意类型上的方法调用。`__` 后面的名称必须与调用的方法名一致：
 
 ```php
-// 定义：__snake_case 函数，第一个参数为 mixed/any
-function __var_dump(mixed $var): void {
+// 第一个参数为 mixed/any
+function __varDump(mixed $var): void {
     var_dump($var);
 }
-// 调用：$anyVar->camelCase()
 $str = "hello";
 $str->varDump();        // 输出 string(5) "hello"
 ```
 
-命名转换规则：方法调用的**驼峰命名自动转为下划线命名**，加上 `__` 前缀查找函数。例如 `varDump` → `__var_dump`，`someMethod` → `__some_method`。
+例如，`varDump()` 只查找 `__varDump()`，`var_dump()` 只查找 `__var_dump()`。查找不区分字母大小写，但不会增加、删除或移动下划线。
 
 ### 15.2 函数签名要求
 
@@ -1027,8 +1027,8 @@ function main(): void {
 // toArray 是内置关键词，优先级高于 __to_array 扩展方法
 $obj->toArray();  // → 始终生成 php::toArray($obj)
 
-// varDump 不是内置关键词 → 查找 __var_dump 函数
-$str->varDump();  // → __var_dump($str)
+// varDump 不是内置关键词 → 查找 __varDump 函数
+$str->varDump();  // → __varDump($str)
 ```
 
 ### 15.5 完整示例

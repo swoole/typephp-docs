@@ -84,17 +84,16 @@ function process($data): void {
 
 ### 2.1 命名约定
 
-在**根命名空间**中定义 `__` 开头的函数，方法调用时**驼峰命名自动转为下划线命名**：
+在**根命名空间**中定义 `__` 开头的函数。函数名中 `__` 后面的部分必须与调用的方法名一致，不会在 camelCase 与 snake_case 之间自动转换：
 
 ```
-方法调用:  $receiver->camelCaseName()
-    ↓ 驼峰转下划线
-函数查找:  __camel_case_name($receiver, ...)
+方法调用:  $receiver->formatValue()
+函数查找:  __formatValue($receiver, ...)
 ```
 
 ```php
 // 定义
-function __var_dump(mixed $var): void {
+function __varDump(mixed $var): void {
     var_dump($var);
 }
 
@@ -105,6 +104,8 @@ $str->varDump();  // 输出 string(5) "hello"
 $arr = [1, 2, 3];
 $arr->varDump();  // 输出 array(3) { [0]=> int(1) ... }
 ```
+
+如果函数定义为 `__var_dump()`，则调用也必须写成 `$value->var_dump()`。字母大小写不敏感，但下划线位置必须一致。
 
 ### 2.2 函数签名要求
 

@@ -8,6 +8,7 @@
 * [类型系统](types.md)
     * [基础类型转换](type-convert.md)
     * [对象类型转换](object-type-conversion.md)
+    * [扩展对象方法](object-extension-method.md)
     * [Std 容器](std-containers.md)
     * [GC 机制](gc.md)
 * [兼容性](compatible.md)
