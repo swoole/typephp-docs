@@ -276,12 +276,12 @@ function std_convert(): void
     $data = get_data();  // 返回 mixed，内部持有 StdContainerBox
 
     // 从 mixed 恢复为 std::vector<int>
-    $v = $data->toStdVector(native_types::type_int);
+    $v = $data->toStdVector(Type::Int);
     $v[] = 42;
     echo $v[0];  // 42
 
     // 从 mixed 恢复为 std::map<string, int>
-    $m = $data->toStdOrderedMap(complex_types::type_string, native_types::type_int);
+    $m = $data->toStdOrderedMap(Type::String, Type::Int);
     $m["key"] = 100;
 }
 ```
@@ -376,7 +376,7 @@ function comprehensive_convert(): void
 
     // Std 容器提取
     $raw = get_container();                 // 返回 mixed
-    $vec = $raw->toStdVector(native_types::type_int);
+    $vec = $raw->toStdVector(Type::Int);
     $vec[] = 10;
     $vec[] = 20;
     echo $vec->count();                     // 2

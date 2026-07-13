@@ -400,7 +400,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $items = std::array(native_types::type_int, 3);
+    $items = std::array(Type::Int, 3);
 
     $items[0] = 10;
     $items[1] = 20;
@@ -414,7 +414,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $matrix = std::array(std::array(native_types::type_int, 3), 2);
+    $matrix = std::array(std::array(Type::Int, 3), 2);
 
     $matrix[0][0] = 1;
     $matrix[1][2] = 9;
@@ -446,7 +446,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $numbers = std::vector(native_types::type_int);
+    $numbers = std::vector(Type::Int);
 
     $numbers[] = 10;
     $numbers[] = 20;
@@ -459,7 +459,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $numbers = std::vector(native_types::type_int, 3);
+    $numbers = std::vector(Type::Int, 3);
 
     $numbers[0] = 1;
     $numbers[1] = 2;
@@ -496,11 +496,11 @@ function main(): void {
 
 ## std::map($keyType, $valueType)
 
-`std::map()` 创建哈希 StdMap 容器，底层对应 C++ `std::unordered_map`。键类型仅支持 `native_types::type_int`、`complex_types::type_string` 或 `complex_types::type_str`。
+`std::map()` 创建哈希 StdMap 容器，底层对应 C++ `std::unordered_map`。键类型仅支持 `Type::Int`、`Type::String` 或 `Type::String`。
 
 ```php
 function main(): void {
-    $scores = std::map(complex_types::type_string, native_types::type_int);
+    $scores = std::map(Type::String, Type::Int);
 
     $scores["alice"] = 90;
     $scores["bob"] = 80;
@@ -513,7 +513,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $users = std::map(native_types::type_int, complex_types::type_string);
+    $users = std::map(Type::Int, Type::String);
 
     $users[1001] = "alice";
     $users[1002] = "bob";
@@ -530,7 +530,7 @@ class Connection {
 }
 
 function main(): void {
-    $pool = std::map(complex_types::type_string, Connection::class);
+    $pool = std::map(Type::String, Connection::class);
 
     $pool["main"] = new Connection("main");
 
@@ -544,7 +544,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $items = std::ordered_map(complex_types::type_string, native_types::type_int);
+    $items = std::ordered_map(Type::String, Type::Int);
 
     $items["b"] = 2;
     $items["a"] = 1;
@@ -559,7 +559,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $balances = std::ordered_map(native_types::type_int, native_types::type_decimal);
+    $balances = std::ordered_map(Type::Int, Type::Decimal);
 
     $balances[1] = std::decimal("19.99");
     $balances[2] = std::decimal("100.50");
@@ -574,17 +574,17 @@ Std 容器的 `$type`、`$keyType`、`$valueType` 不是普通运行时变量，
 
 | 类型描述 | 含义 |
 |----------|------|
-| `native_types::type_int` | native int |
-| `native_types::type_float` | native float |
-| `native_types::type_bool` | native bool |
-| `native_types::type_bigint` | BigInt |
-| `native_types::type_decimal` | Decimal |
-| `native_types::type_bigfloat` | BigFloat |
-| `complex_types::type_string` / `complex_types::type_str` | string |
-| `complex_types::type_array` | array |
-| `complex_types::type_object` | object |
-| `complex_types::type_any` / `complex_types::type_var` | any / mixed |
-| `complex_types::type_stream` | stream |
+| `Type::Int` | native int |
+| `Type::Float` | native float |
+| `Type::Bool` | native bool |
+| `Type::BigInt` | BigInt |
+| `Type::Decimal` | Decimal |
+| `Type::BigFloat` | BigFloat |
+| `Type::String` | string |
+| `Type::Array` | array |
+| `Type::Object` | object |
+| `Type::Any` | any / mixed |
+| `Type::Stream` | stream |
 | `ClassName::class` | 指定类、抽象类或接口 |
 
 ## 使用限制
@@ -593,10 +593,10 @@ Std 容器的 `$type`、`$keyType`、`$valueType` 不是普通运行时变量，
 
 ```php
 function main(): void {
-    $numbers = std::vector(native_types::type_int); // 正确
+    $numbers = std::vector(Type::Int); // 正确
 
     // 错误：不能对已有变量重新创建容器
-    // $numbers = std::vector(native_types::type_int);
+    // $numbers = std::vector(Type::Int);
 }
 ```
 
@@ -606,7 +606,7 @@ function main(): void {
 function main(bool $flag): void {
     if ($flag) {
         // 错误：不能在 if/while/for 等嵌套语句块中创建 std 容器
-        $numbers = std::vector(native_types::type_int);
+        $numbers = std::vector(Type::Int);
     }
 }
 ```

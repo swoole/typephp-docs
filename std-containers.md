@@ -25,26 +25,26 @@ auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->contain
 
 ### 值类型参数
 
-容器值类型通过辅助类常量指定：
+容器值类型通过根命名空间 `Type` 的符号指定：
 
-| 辅助类 | 可用常量 | 映射类型 | C++ 存储 |
-|--------|---------|---------|----------|
-| `native_types` | `type_int` | `php::Int` | `php::Int` |
-| `native_types` | `type_float` | `php::Float` | `php::Float` |
-| `native_types` | `type_bool` | `php::Bool` | `php::Bool` |
-| `native_types` | `type_bigint` | `php::BigInt` | `php::Var` |
-| `native_types` | `type_bigfloat` | `php::BigFloat` | `php::Var` |
-| `native_types` | `type_decimal` | `php::Decimal` | `php::Var` |
-| `complex_types` | `type_string` / `type_str` | `php::Str` | `php::Str` |
-| `complex_types` | `type_array` | `php::Array` | `php::Array` |
-| `complex_types` | `type_object` | `php::Object` | `php::Object` |
-| `complex_types` | `type_any` / `type_var` | `php::Var` | `php::Var` |
-| `complex_types` | `type_stream` | `php::Stream` | `php::Var` |
-| — | `ClassName::class` | `php::Object`（带类信息） | `php::Object` |
+| 类型符号 | 映射类型 | C++ 存储 |
+|---------|---------|----------|
+| `Type::Int` | `php::Int` | `php::Int` |
+| `Type::Float` | `php::Float` | `php::Float` |
+| `Type::Bool` | `php::Bool` | `php::Bool` |
+| `Type::BigInt` | `php::BigInt` | `php::Var` |
+| `Type::BigFloat` | `php::BigFloat` | `php::Var` |
+| `Type::Decimal` | `php::Decimal` | `php::Var` |
+| `Type::String` | `php::Str` | `php::Str` |
+| `Type::Array` | `php::Array` | `php::Array` |
+| `Type::Object` | `php::Object` | `php::Object` |
+| `Type::Any` | `php::Var` | `php::Var` |
+| `Type::Stream` | `php::Stream` | `php::Var` |
+| `ClassName::class` | `php::Object`（带类信息） | `php::Object` |
 
 > **注意**：`BigInt`、`BigFloat`、`Decimal`、`Stream` 底层存储使用 `php::Var`（Box 资源），写入时编译器自动通过 `php::newBigInt()`、`php::newBigFloat()` 等函数进行类型转换，读取后可直接调用对应的通用方法（如 `->toString()`）。
 
-键类型仅支持 `native_types::type_int` 和 `complex_types::type_string`。
+键类型仅支持 `Type::Int` 和 `Type::String`。
 
 ### 高精度类型与 Stream 示例
 
@@ -53,25 +53,25 @@ declare(strict_types=1);
 use native_types;
 
 // BigInt vector —— 写入时 int 字面量自动转换为 BigInt
-$bigVec = std::vector(native_types::type_bigint);
+$bigVec = std::vector(Type::BigInt);
 $bigVec[] = 99;
 $bigVec[] = 12345678901234567890;
 var_dump($bigVec[0]->toString());  // "99"
 
 // BigFloat map —— key 为 int，value 为 BigFloat
-$bigMap = std::ordered_map(native_types::type_int, native_types::type_bigfloat);
+$bigMap = std::ordered_map(Type::Int, Type::BigFloat);
 $bigMap[0] = 3.14;
 $bigMap[1] = 2.71;
 var_dump($bigMap[0]->toString());  // "3.1400000000000001"
 
 // Decimal array —— 定长 Decimal 数组
-$decArray = std::array(native_types::type_decimal, 3);
+$decArray = std::array(Type::Decimal, 3);
 $decArray[0] = 0.1;
 $decArray[1] = 0.2;
 var_dump($decArray[0]->toString());  // "0.1"
 
 // Stream vector —— 存放多个流资源
-$streamVec = std::vector(complex_types::type_stream);
+$streamVec = std::vector(Type::Stream);
 $fp = fopen("test.txt", "r");
 $streamVec[] = $fp;
 var_dump($streamVec[0]->read(1024));
@@ -99,7 +99,7 @@ use native_types;
 
 function main(): void {
     // 创建空的 int 类型 vector
-    $v = std::vector(native_types::type_int);
+    $v = std::vector(Type::Int);
 
     // push_back 追加
     $v[] = 10;
@@ -140,7 +140,7 @@ php::echo(php::toInt(v_ref.size()));
 **指定初始大小**：
 
 ```php
-$v = std::vector(native_types::type_int, 100);
+$v = std::vector(Type::Int, 100);
 ```
 
 生成的 C++ 代码：
@@ -176,7 +176,7 @@ use native_types;
 
 function main(): void {
     // 创建 int 类型、大小为 5 的定长数组
-    $a = std::array(native_types::type_int, 5);
+    $a = std::array(Type::Int, 5);
 
     // 索引写入
     $a[0] = 42;
@@ -220,7 +220,7 @@ a_ref.offsetSet(php::toInt(4L), php::toInt(999L));
 
 ```php
 // 4×5 的二维 int 数组
-$matrix = std::array(std::array(native_types::type_int, 5), 4);
+$matrix = std::array(std::array(Type::Int, 5), 4);
 
 // 访问: $matrix[row][col]
 $matrix[0][0] = 1;
@@ -266,7 +266,7 @@ use native_types;
 
 function main(): void {
     // 创建 string → int 的映射
-    $m = std::ordered_map(complex_types::type_string, native_types::type_int);
+    $m = std::ordered_map(Type::String, Type::Int);
 
     // 写入
     $m["alpha"] = 100;
@@ -332,7 +332,7 @@ use native_types;
 
 function main(): void {
     // 创建 int → User 的哈希映射
-    $u = std::map(native_types::type_int, User::class);
+    $u = std::map(Type::Int, User::class);
 
     $u[1] = new User(1);
     $u[2] = new User(2);
@@ -401,14 +401,14 @@ use native_types;
 // 被调方：接收容器并修改
 function vector_update($source): void
 {
-    $v = $source->toStdVector(native_types::type_int);
+    $v = $source->toStdVector(Type::Int);
     // $v 现在是调用方 vector 的引用，修改会反映到原容器
     var_dump($v[1]);
     $v[2] = 9;
 }
 
 function main(): void {
-    $vector = std::vector(native_types::type_int, 3);
+    $vector = std::vector(Type::Int, 3);
     $vector[0] = 1;
     $vector[1] = 7;
     $vector[2] = 3;
@@ -453,11 +453,11 @@ php::var_dump(vector_ref.offsetGet(php::toInt(2L)));                // 9
 function process_float_array($source): void
 {
     // 期望 float 数组
-    $array = $source->toStdArray(native_types::type_float, 3);
+    $array = $source->toStdArray(Type::Float, 3);
 }
 
 function main(): void {
-    $array = std::array(native_types::type_int, 3);  // 实际是 int 数组
+    $array = std::array(Type::Int, 3);  // 实际是 int 数组
 
     try {
         process_float_array($array);

@@ -109,45 +109,47 @@ Big* 类型是**不可变的**（immutable）——每次运算返回新值，�
 
 ## 4. Std 强类型容器
 
-TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `native_types::type_int` 和 `complex_types::type_string`。
+TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `Type::Int` 和 `Type::String`。
 
 ```php
 declare(strict_types=1);
 use native_types;
 
 // std::vector — 动态数组
-$v = std::vector(native_types::type_int);
+$v = std::vector(Type::Int);
 $v[] = 10;
 $v[] = 20;
 
 // std::array — 定长数组（编译期边界检查）
-$a = std::array(native_types::type_float, 5);
+$a = std::array(Type::Float, 5);
 $a[0] = 3.14;
 
 // std::ordered_map — 有序映射
-$m = std::ordered_map(complex_types::type_string, native_types::type_int);
+$m = std::ordered_map(Type::String, Type::Int);
 $m["key"] = 100;
 
 // std::map — 哈希映射
-$u = std::map(native_types::type_int, User::class);
+$u = std::map(Type::Int, User::class);
 $u[1] = new User(1);
 ```
 
-### 4.1 类型辅助类
+### 4.1 类型符号
 
-| 辅助类 | 常量 | 值 | 用途 |
-|--------|------|-----|------|
-| `native_types` | `type_int` | `'int'` | 标注整型元素 |
-| `native_types` | `type_float` | `'float'` | 标注浮点元素 |
-| `native_types` | `type_bool` | `'bool'` | 标注布尔元素 |
-| `native_types` | `type_bigint` | `'bigint'` | 标注 BigInt 元素 |
-| `native_types` | `type_bigfloat` | `'bigfloat'` | 标注 BigFloat 元素 |
-| `native_types` | `type_decimal` | `'decimal'` | 标注 Decimal 元素 |
-| `complex_types` | `type_string` / `type_str` | `'string'` | 标注字符串元素 |
-| `complex_types` | `type_array` | `'array'` | 标注数组元素 |
-| `complex_types` | `type_object` | `'object'` | 标注对象元素 |
-| `complex_types` | `type_any` / `type_var` | `'any'` | 标注动态类型元素 |
-| `complex_types` | `type_stream` | `'stream'` | 标注 Stream 元素 |
+根命名空间 `Type` 提供带有 IDE 补全和拼写检查的编译期类型符号。它不同于编译器内部使用的 `TypePHP\Type`。
+
+| 类型符号 | 用途 |
+|---------|------|
+| `Type::Int` | 标注整型元素 |
+| `Type::Float` | 标注浮点元素 |
+| `Type::Bool` | 标注布尔元素 |
+| `Type::BigInt` | 标注 BigInt 元素 |
+| `Type::BigFloat` | 标注 BigFloat 元素 |
+| `Type::Decimal` | 标注 Decimal 元素 |
+| `Type::String` | 标注字符串元素 |
+| `Type::Array` | 标注数组元素 |
+| `Type::Object` | 标注对象元素 |
+| `Type::Any` | 标注动态类型元素 |
+| `Type::Stream` | 标注 Stream 元素 |
 
 容器值类型也可以是任意 PHP 类名（如 `User::class`），编译器会为每个具体类型生成独立的 C++ 模板实例。
 
@@ -365,8 +367,8 @@ PHP 的联合类型（`int|float`、`int|string` 等）、交叉类型（`A&B`�
 ### 7.7 Std 容器键类型限制
 
 `std::ordered_map` 和 `std::map` 的键类型仅支持：
-- `native_types::type_int` — 整数键
-- `complex_types::type_string` / `complex_types::type_str` — 字符串键
+- `Type::Int` — 整数键
+- `Type::String` / `Type::String` — 字符串键
 
 其他键类型会导致编译错误。
 

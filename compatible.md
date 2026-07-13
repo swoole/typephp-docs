@@ -192,22 +192,6 @@ TypePHP 编译器不允许手动设置当前文件为非严格模式：`declare(
 Fatal error: declare(strict_types=0) is not allowed, only strict_types=1 is supported
 ```
 
-## 变量作用域
-由于`PHP`的设计所有局部变量`Local Var`的作用域是`function`级别的，所以即使在`if/else/for/while`代码块中声明的变量也会被当做`function`内的顶层局部变量来处理。这与`ZendPHP`行为是一致的。
-
-```php
-function foo() {
-    if ($cond) {
-        $a = [];
-    }
-    // 这是不被允许的
-    // $a 虽然是在 if 语句中声明，但实际的作用域是整个 function
-    $a = "str";
-}
-```
-
-
-
 ## 未定义变量
 在`ZendPHP`可以使用`isset()`判断变量是否存在。TypePHP 编译器不支持这种写法。局部变量必须是先定义再使用。因此下面的代码是不被允许的。
 

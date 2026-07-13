@@ -859,8 +859,8 @@ $upper = $s->upper();  // $s 依然是 "hello"，$upper 是 "HELLO"
 当变量的类型为 `Var`（通用 PHP 类型）时，编译器会按以下优先级查找：
 
 1. **内置关键词方法**（`to*` 系列，由 `KEYWORD_METHOD_MAP` 定义）
-2. **关键词扩展方法**（根命名空间 `__` 开头的函数，第一个参数为 `mixed`）
-3. **类型扩展方法**（按 String → Array → Int → Float → Bool → Stream → BigInt → Decimal → BigFloat 顺序查找）
+2. **Any 类型扩展方法**（`ExtensionProvider(Type::Any)`）
+3. **关键词扩展方法**（`ExtensionProvider('*')`）
 4. **动态调用**（退化为 ZendVM 方法调用）
 
 ```php
@@ -881,184 +881,177 @@ echo $x->contains("test");
 
 ## 14. 类型扩展方法
 
-除了内置的通用方法外，编译器还支持**自定义扩展方法**。只要在当前项目中定义了命名符合约定的 PHP 函数，编译器就会自动将其发现为通用方法。
+TypePHP 使用类级 `ExtensionProvider` 声明类型扩展方法。Provider 的目标由根命名空间 `Type` 的类型符号指定，类中的 `public static` 方法会成为该类型的扩展方法。根命名空间 `Type` 与编译器内部的 `TypePHP\Type` 不同。
 
-### 14.1 命名约定
-
-格式：`{类型前缀}_{方法名}`。方法名部分必须与调用名称一致，不会自动转换命名风格。
-
-| 类型 | 前缀 | 示例 |
-|------|------|------|
-| Int | `int_` | `int_is_prime` → `$a->is_prime()` |
-| Float | `float_` | `float_normalize` → `$f->normalize()` |
-| Bool | `bool_` | `bool_toggle` → `$b->toggle()` |
-| String | `str_` | `str_capitalize` → `$s->capitalize()` |
-| Array | `array_` | `array_flatten` → `$arr->flatten()` |
-| Stream | `stream_` | `stream_rewind` → `$fp->rewind()` |
-| BigInt | `bigint_` | `bigint_is_probable_prime` → `$a->is_probable_prime()` |
-| Decimal | `decimal_` | `decimal_round_to` → `$d->round_to()` |
-| BigFloat | `bigfloat_` | `bigfloat_truncate` → `$bf->truncate()` |
-
-### 14.2 实现示例
+### 14.1 Int 扩展
 
 ```php
-<?php
-declare(strict_types=1);
-use native_types;
-
-/**
- * 扩展方法：判断 Int 是否为素数
- * 命名：类型前缀 int_ + 方法名 is_prime
- */
-function int_is_prime(int $n): bool {
-    if ($n < 2) return false;
-    for ($i = 2; $i * $i <= $n; $i++) {
-        if ($n % $i == 0) return false;
+#[ExtensionProvider(Type::Int)]
+final class IntExtensions
+{
+    public static function isPrime(int $value): bool
+    {
+        if ($value < 2) return false;
+        for ($i = 2; $i * $i <= $value; $i++) {
+            if ($value % $i === 0) return false;
+        }
+        return true;
     }
-    return true;
 }
 
-/**
- * 扩展方法：数组扁平化
- * 命名：类型前缀 array_ + 方法名 flatten
- */
-function array_flatten(array $arr): array {
-    $result = [];
-    array_walk_recursive($arr, function($v) use (&$result) {
-        $result[] = $v;
-    });
-    return $result;
-}
-
-function main(): void {
-    // 名称一致：int_is_prime → $n->is_prime()
-    $n = 97;
-    if ($n->is_prime()) {
-        echo "$n is prime\n";
-    }
-
-    // 自动发现：array_flatten → $arr->flatten()
-    $nested = [[1, 2], [3, [4, 5]], 6];
-    $flat = $nested->flatten();
-    var_dump($flat);  // [1, 2, 3, 4, 5, 6]
-}
-?>
+$number->isPrime();
 ```
 
-### 14.3 注意事项
+第一个参数是 receiver，方法调用提供的参数从第二个参数开始对应：
 
-- 函数**第一个参数**是接收者（`receiver`），从方法调用中自动传入，参数类型必须与扩展方法对应的类型一致，例如：`array_flatten`扩展方法，第一个参数的类型比如是`array`
-- 需要先定义函数再调用——编译器在分析阶段发现函数，转换阶段使用它们
-- 方法名必须一致：`int_is_prime()` 对应 `$n->is_prime()`，`int_isPrime()` 对应 `$n->isPrime()`
-- 字母大小写不敏感，但下划线位置必须一致
+```php
+#[ExtensionProvider(Type::Int)]
+final class IntExtensions
+{
+    public static function between(int $value, int $min, int $max): bool
+    {
+        return $value >= $min && $value <= $max;
+    }
+}
 
----
+var_dump($number->between(10, 100));
+```
+
+### 14.2 String 扩展
+
+```php
+#[ExtensionProvider(Type::String)]
+final class StringExtensions
+{
+    public static function surround(
+        string $value,
+        string $left = '[',
+        string $right = ']'
+    ): string {
+        return $left . $value . $right;
+    }
+}
+
+echo 'hello'->surround();       // [hello]
+echo 'hello'->surround('<', '>'); // <hello>
+```
+
+### 14.3 Array 扩展
+
+```php
+#[ExtensionProvider(Type::Array)]
+final class ArrayExtensions
+{
+    public static function firstOrNull(array $items): mixed
+    {
+        return $items[0] ?? null;
+    }
+}
+
+$first = $items->firstOrNull();
+```
+
+### 14.4 Stream 扩展
+
+```php
+#[ExtensionProvider(Type::Stream)]
+final class StreamExtensions
+{
+    public static function readChunk(stream $stream, int $length): string
+    {
+        return fread($stream, $length);
+    }
+}
+
+$chunk = $stream->readChunk(4096);
+```
+
+### 14.5 支持的 Provider 目标
+
+```php
+Type::Int
+Type::Float
+Type::Bool
+Type::BigInt
+Type::BigFloat
+Type::Decimal
+
+Type::String
+Type::Array
+Type::Object
+Type::Stream
+Type::Box
+```
+
+Provider 方法必须是 `public static`，第一个参数类型必须与 Provider 目标一致。private/protected 方法不会注册，可以作为内部 helper。方法名直接作为公开的扩展方法名，不进行命名风格转换。
+
+### 14.6 返回类型与链式调用
+
+扩展方法的返回类型参与后续类型推断：
+
+```php
+$result = $number
+    ->between(10, 100) // bool
+    ->toString();
+
+$text = $items
+    ->firstOrNull()
+    ->toString()
+    ->trim();
+```
+
+同一个目标类型和方法名只能注册一次，重复 Provider 会在编译期报错。
 
 ## 15. 关键词扩展方法
 
-除了按类型前缀注册的扩展方法外，编译器还支持**关键词扩展方法（keyword extension methods）**。这类方法作用于**任意类型**的 receiver（`mixed` / `any` / `var`），无需按类型注册。
-
-### 15.1 命名约定
-
-在根命名空间中定义 `__` 开头的函数，即可作为任意类型上的方法调用。`__` 后面的名称必须与调用的方法名一致：
+需要让方法适用于任意 receiver 时，Provider 目标使用 `'*'`，第一个参数声明为 `any`：
 
 ```php
-// 第一个参数为 mixed/any
-function __varDump(mixed $var): void {
-    var_dump($var);
-}
-$str = "hello";
-$str->varDump();        // 输出 string(5) "hello"
-```
+#[ExtensionProvider('*')]
+final class KeywordExtensions
+{
+    public static function inspect(
+        mixed $value,
+        string $label = 'value'
+    ): mixed {
+        echo $label, ': ';
+        var_dump($value);
+        return $value;
+    }
 
-例如，`varDump()` 只查找 `__varDump()`，`var_dump()` 只查找 `__var_dump()`。查找不区分字母大小写，但不会增加、删除或移动下划线。
-
-### 15.2 函数签名要求
-
-关键词扩展方法必须满足以下条件：
-
-- 定义在**根命名空间**（`namespace` 为空）
-- 函数名以 **`__` 开头**
-- **第一个参数**的类型为 `mixed` 或 `any`
-
-```php
-// ✅ 合法的关键词扩展方法
-function __json_pretty(mixed $var): string {
-    return json_encode($var, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-}
-
-// ❌ 有命名空间 — 不会被注册
-namespace Utils;
-function __debug(mixed $var): void { ... }
-
-// ❌ 第一个参数不是 mixed/any — 不会被注册
-function __to_upper(string $var): string { ... }
-```
-
-### 15.3 参数与返回值
-
-方法调用的参数从第二个参数开始传递，返回类型由函数声明推断：
-
-```php
-declare(strict_types=1);
-use native_types;
-
-function __assert_type(mixed $var, string $expected): bool {
-    return gettype($var) === $expected;
-}
-
-function main(): void {
-    $val = 42;
-    $val->assertType("integer");  // → __assert_type($val, "integer")
-    // 返回类型为 bool（从函数声明推断）
+    public static function typeName(mixed $value): string
+    {
+        return get_debug_type($value);
+    }
 }
 ```
 
-### 15.4 方法查找优先级
-
-当 receiver 类型为 `mixed` / `any` / `var` 时，方法查找按以下优先级：
-
-1. **`to*` 内置关键词方法**（`toInt`、`toString`、`toArray` 等，由 `KEYWORD_METHOD_MAP` 定义）
-2. **`__` 关键词扩展方法**（根命名空间 `__` 开头，第一个参数为 `mixed`）
-3. **类型扩展方法**（按 String → Array → Int → Float → Bool → Stream → BigInt → Decimal → BigFloat 顺序查找）
-4. **动态调用**（退化为 ZendVM 的方法调用）
+关键词扩展可以用于不同类型：
 
 ```php
-// toArray 是内置关键词，优先级高于 __to_array 扩展方法
-$obj->toArray();  // → 始终生成 php::toArray($obj)
+$number->inspect('number');
+$array->inspect('array');
+$object->inspect('object');
 
-// varDump 不是内置关键词 → 查找 __varDump 函数
-$str->varDump();  // → __varDump($str)
+echo $value->typeName();
 ```
 
-### 15.5 完整示例
+默认参数和可变参数遵循普通静态方法规则：
 
 ```php
-<?php
-declare(strict_types=1);
-use native_types;
-
-function __var_dump(mixed $var): void {
-    var_dump($var);
+#[ExtensionProvider('*')]
+final class ComparisonExtensions
+{
+    public static function isOneOf(mixed $value, mixed ...$choices): bool
+    {
+        return in_array($value, $choices, true);
+    }
 }
 
-function __to_json(mixed $var): string {
-    return json_encode($var, JSON_UNESCAPED_UNICODE);
-}
-
-function main(): void {
-    $str = "hello world";
-    $str->varDump();    // string(11) "hello world"
-
-    $arr = ["name" => "test", "value" => 42];
-    echo $arr->toJson();  // {"name":"test","value":42}
-}
-?>
+$status->isOneOf('pending', 'running', 'finished');
 ```
 
-与类型扩展方法不同，关键词扩展方法**不限制 receiver 的具体类型**，适用于需要在所有类型上提供统一工具方法的场景（如调试输出、序列化等）。
-
----
+`Type::Any` 只匹配静态类型为 `any` 的 receiver；`'*'` 才是适用于所有类型的关键词通配目标。内置关键词方法（例如 `toInt()`、`toString()` 和 `toObject()`）不能被扩展覆盖。Provider 的完整声明与校验规则见[扩展方法提供者](extension-provider.md)。
 
 ## 16. 完整示例
 
