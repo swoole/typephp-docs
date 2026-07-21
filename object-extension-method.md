@@ -38,13 +38,33 @@ function main(): void
 
 ## 定义规则
 
-- `ExtensionProvider` 位于根命名空间；在命名空间内使用 `#[\ExtensionProvider(...)]`。
+- `ExtensionProvider` 位于根命名空间；在命名空间内可以使用 `#[\ExtensionProvider(...)]`，也可以先执行 `use \ExtensionProvider;` 后使用 `#[ExtensionProvider(...)]`。
 - Attribute 参数是目标对象的 `ClassName::class`。
 - 扩展方法必须是 `public static`。
 - 第一个参数必须是目标对象类型，并且不能按引用传递。
 - 调用参数对应静态方法的第二个及后续参数。
 - private/protected 方法不会注册，可以作为内部 helper。
 - 方法名直接作为扩展方法名，不进行命名风格转换。
+
+Attribute 名称和 `ClassName::class` 参数都遵循 PHP 的命名空间解析规则，也支持别名：
+
+```php
+namespace App\Extension;
+
+use \ExtensionProvider as Provider;
+use App\Model\User as ModelUser;
+
+#[Provider(ModelUser::class)]
+final class UserExtensions
+{
+    public static function displayName(ModelUser $user): string
+    {
+        return strtoupper($user->name);
+    }
+}
+```
+
+未导入时，命名空间中的 `#[ExtensionProvider(...)]` 指向当前命名空间下的同名 Attribute，不会触发 TypePHP 的扩展方法功能。
 
 ```php
 #[\ExtensionProvider(User::class)]
@@ -107,4 +127,3 @@ call_user_func([$user, 'displayName']);
 ```
 
 扩展对象方法仅在 TypePHP 静态代码中生效，不会向 ZendVM 动态添加实例方法。完整的通用类型、关键词和对象 Provider 说明见[扩展方法提供者](extension-provider.md)。
-

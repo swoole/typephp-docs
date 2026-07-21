@@ -1,18 +1,37 @@
 # Composer 安装
 
-TypePHP 可以作为 Composer 开发依赖安装。Composer 入口是 `vendor/bin/tpc.php`，由当前 PHP 解释器运行。
+可以使用 `Composer` 快速安装 `TypePHP`：
 
-如果系统已经准备好相互兼容的 `libphp.so` 和 `libphpx.so`，TypePHP 会直接使用，不会进入自动构建流程。这是最推荐、构建速度也最快的方式。自动构建只是缺少本地库时的可选兜底能力。
+```bash
+composer require swoole/typephp
+```
+
+`tpc.php` 由当前 `PHP` 解释器运行。需要 `PHP 8.4` 或 `PHP 8.5`。
+`TypePHP` 项目需要支持 `C++17` 的 `GCC` 或 `Clang`，请检查当前是否满足要求。
+
+> 建议使用 `require-dev`，因为 `tpc.php` 是开发期和构建期工具
+
+## 确认安装
+```bash
+vendor/bin/tpc.php --version
+vendor/bin/tpc.php --help
+```
+
+## 编译 PHP 项目
+
+```bash
+vendor/bin/tpc.php project.yml
+vendor/bin/tpc.php hello.php
+```
+
+如果系统已经准备好相互兼容的 `libphp.so` 和 `libphpx.so`，`TypePHP` 会直接使用，
+若系统缺少 `libphp.so` 或 `libphpx.so`，在 `Linux` 环境下 `TypePHP` 会自动构建。
 
 ## 环境要求
 
-- Linux；自动构建本地库目前仅支持 Linux。
-- PHP 8.4 或 PHP 8.5。
-- Composer 2。
-- 最终编译 TypePHP 项目需要支持 C++17 的 GCC 或 Clang；首次启动 `tpc.php` 前可以尚未安装。
-- 自动构建 PHPX 时需要 CMake 3.24 或更高版本；缺失时安装器可以通过系统包管理器安装。
-- PHP 开发头文件，推荐提供 `php-config`。
-- 自动构建 PHPX 时需要 GMP、MPFR 等编译依赖。
+- 自动构建 `PHPX` 时需要 `CMake 3.24` 或更高版本；缺失时安装器可以通过系统包管理器安装。
+- `PHP` 开发头文件，推荐提供 `php-config`。
+- 自动构建 `PHPX` 时需要 `gmp`、`mpfr` 等编译依赖。
 
 Ubuntu / Debian 常用依赖：
 
@@ -35,35 +54,12 @@ sudo dnf install -y \
 
 `tpc.php` 不会在检查本地库之前要求 GCC 或 CMake。只有用户确认自动构建缺失库后，安装器才检测 `apt-get`、`dnf` 或 `yum`，并询问是否安装 GCC/G++、make、CMake、pkg-config 及其他缺失开发包。完成本地库处理后，编译器才执行最终工具链校验。
 
-## 项目安装
-
-进入项目目录：
-
-```bash
-composer require --dev swoole/typephp
-```
-
-Composer 根据 TypePHP 包的 `bin` 配置创建：
-
-```text
-vendor/bin/tpc.php
-```
-
-确认安装：
-
-```bash
-vendor/bin/tpc.php --version
-vendor/bin/tpc.php --help
-```
-
 团队项目应提交 `composer.json` 和 `composer.lock`。其他开发者可以执行：
 
 ```bash
 composer install
 vendor/bin/tpc.php project.yml
 ```
-
-建议使用 `require-dev`，因为 `tpc.php` 是开发期和构建期工具。
 
 ## 全局安装
 
@@ -72,7 +68,7 @@ composer global require swoole/typephp
 composer global config bin-dir --absolute
 ```
 
-将命令输出的 Composer 全局 bin 目录加入 `PATH` 后，可以执行：
+将命令输出的 `Composer` 全局 `bin` 目录加入 `PATH` 后，可以执行：
 
 ```bash
 tpc.php --version
@@ -83,7 +79,7 @@ tpc.php project.yml
 
 ## 优先使用已有本地库
 
-如果已经自行编译好 PHP Embed 和 PHPX，建议显式设置安装目录：
+如果已经自行编译好 `PHP Embed SAPI` 和 `PHPX`，建议显式设置安装目录：
 
 ```bash
 export PHP_HOME=/opt/php-8.4

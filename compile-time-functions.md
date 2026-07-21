@@ -11,6 +11,8 @@
 | `any($value)` | 将表达式降级为 `mixed` / `any` / `php::Var` |
 | `refval($value)` | 显式按引用传递变量、数组元素或对象属性 |
 | `objval($value, $className)` | 从 `mixed` / `any` 恢复对象声明类型 |
+| `expected($condition)` | 标记条件通常为真，帮助编译器优化常见分支 |
+| `unexpected($condition)` | 标记条件通常为假，帮助编译器优化少见分支 |
 | `std::int($value)` | 创建 native int 表达式 |
 | `std::float($value)` | 创建 native float 表达式 |
 | `std::bool($value)` | 创建 native bool 表达式 |
@@ -24,15 +26,17 @@
 
 ## 使用位置与名称写法
 
-这三个函数的用途不同，适用位置也不同：
+这些核心函数的用途不同，适用位置也不同：
 
 | 函数 | 可使用的位置 | 说明 |
 |------|--------------|------|
 | `any()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值、数组元素、运算式、条件表达式等。 |
 | `objval()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值和方法调用前的对象转换。 |
 | `refval()` | 仅限调用参数 | 用于把一个可引用的值传给需要引用的参数；它不是普通值转换函数。 |
+| `expected()` | 布尔条件表达式 | 用于 `if`、`elseif`、循环或三元表达式等通常为真的条件。 |
+| `unexpected()` | 布尔条件表达式 | 用于错误、越界、缓存未命中等通常为假的条件。 |
 
-请使用小写、无命名空间前缀的标准写法：`any()`、`objval()`、`refval()`。不要依赖 `ANY()`、`\any()` 等大小写或前导反斜杠变体被识别为 TypePHP 编译期函数。
+请使用小写、无命名空间前缀的标准写法：`any()`、`objval()`、`refval()`、`expected()`、`unexpected()`。不要依赖 `ANY()`、`\any()` 等大小写或前导反斜杠变体被识别为 TypePHP 编译期函数。
 
 ## any($value)
 
@@ -231,6 +235,59 @@ function main(): void {
     $logger = objval($value, Logger::class);
 
     $logger->write("hello");
+}
+```
+
+## expected($condition) 和 unexpected($condition)
+
+`expected()` 和 `unexpected()` 用于向编译器提供分支发生概率的提示：
+
+- `expected($condition)` 表示该条件在大多数情况下为真。
+- `unexpected($condition)` 表示该条件在大多数情况下为假。
+
+例如，把正常处理路径标记为常见分支：
+
+```php
+function handle_request(bool $ready): int {
+    if (expected($ready)) {
+        // 绝大多数请求会进入这个分支
+        return 1;
+    }
+
+    return 0;
+}
+```
+
+把错误或其他少见情况标记为非常见分支：
+
+```php
+function normalize_id(int $id): int {
+    if (unexpected($id < 0)) {
+        return 0;
+    }
+
+    return $id;
+}
+```
+
+也可以在循环条件中使用：
+
+```php
+function countdown(int $remaining): void {
+    while (expected($remaining > 0)) {
+        echo $remaining, "\n";
+        $remaining--;
+    }
+}
+```
+
+两个函数都只接受一个非展开参数，并返回 `bool`。它们不会改变条件的真假结果、求值次数或业务逻辑，只提供优化提示。
+
+分支预测提示应当基于实际运行情况使用。如果无法确定某个分支是否明显更常见，直接使用普通条件表达式即可：
+
+```php
+if ($condition) {
+    // 不需要强行添加 expected() 或 unexpected()
 }
 ```
 

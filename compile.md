@@ -95,6 +95,14 @@ build-dir: build
 ./tpc project.yml -m bin
 ```
 
+`lib` 模式生成可供其他 TypePHP 项目链接的动态库：
+
+```bash
+./tpc project.yml -m lib
+```
+
+创建、发布和引用动态库的完整步骤见[TypePHP 动态库](library.md)。
+
 `ext` 模式生成 PHP 扩展：
 
 ```bash

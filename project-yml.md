@@ -12,7 +12,7 @@ output: build/myapp
 # name 不改变输出目录
 # name: myapp
 
-# 构建模式：bin(可执行文件) / ext(扩展) / binary / extension / cli
+# 构建模式：bin（可执行文件）/ lib（动态库）/ ext（PHP 扩展）
 mode: bin
 
 # 优化级别、并行任务和调试开关
@@ -100,7 +100,7 @@ resource:
 |--------|------|------|
 | `output` | `string` | 输出文件路径，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
 | `name` | `string` | 仅设置输出文件名，不改变输出目录。例如 `name: myapp` 会在当前工作目录生成 `./myapp` |
-| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）和 `ext`/`extension`（扩展） |
+| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）、`lib`/`library`/`shared`（动态库）和 `ext`/`extension`（PHP 扩展） |
 | `optimize` | `integer` | 优化级别，等价于 `-O`，取值范围 `0` ~ `3` |
 | `job` | `integer` | 并行编译任务数，等价于 `-j` / `--job` |
 | `debug` | `boolean` | 启用调试模式，等价于 `-d` / `--debug` |

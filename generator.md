@@ -1,10 +1,10 @@
-`yield` 用来编写“按需产生数据”的函数。函数中出现 `yield` 或 `yield from` 后，调用函数不会一次性得到全部结果；它会返回一个可迭代对象，`foreach` 每前进一步，函数才继续执行并产生下一个值。
+# Yield 与 Generator
 
-Generator 很适合处理大文件、分页数据、连续计算结果等不需要一次性放入数组的场景。
+`yield` 用于按需产生数据。函数中出现 `yield` 或 `yield from` 后，调用函数会立即返回一个可迭代对象；函数体在开始迭代时才执行，并在每次产生值后暂停。
 
-## 最简单的用法
+Generator 适合处理大文件、分页结果、数据流和连续计算结果。与先构造完整数组相比，它通常能显著降低峰值内存占用。
 
-在函数中使用 `yield` 返回一个值：
+## 基本用法
 
 ```php
 function numbers(): iterable
@@ -30,28 +30,30 @@ function main(): void
 3
 ```
 
-没有指定 key 时，PHP 会从 `0` 开始自动生成整数 key。也可以显式指定 key：
+没有指定 key 时，会从 `0` 开始生成整数 key。也可以显式指定 key：
 
 ```php
 function statuses(): iterable
 {
-    yield "draft" => "草稿";
-    yield "published" => "已发布";
+    yield 'draft' => '草稿';
+    yield 'published' => '已发布';
 }
 
 foreach (statuses() as $code => $label) {
-    echo $code, ": ", $label, "\n";
+    echo $code, ': ', $label, "\n";
 }
 ```
 
-## 延迟执行
+自动整数 key 会避开已经显式使用过的整数 key，其行为与 ZendPHP Generator 一致。
 
-Generator 的函数体会在开始迭代时才执行，而不是调用函数时立即执行。因此可以把昂贵操作放在 `yield` 之间：
+## 延迟执行与资源释放
+
+Generator 函数体不会在调用函数时执行，而是在第一次迭代或读取当前值时执行：
 
 ```php
 function read_lines(string $file): iterable
 {
-    $handle = fopen($file, "r");
+    $handle = fopen($file, 'r');
 
     try {
         while (($line = fgets($handle)) !== false) {
@@ -62,59 +64,72 @@ function read_lines(string $file): iterable
     }
 }
 
-foreach (read_lines("app.log") as $line) {
+foreach (read_lines('app.log') as $line) {
     echo $line, "\n";
 }
 ```
 
-建议在 Generator 中使用 `try/finally` 释放文件、连接等资源。正常遍历结束、异常中断或 Generator 被销毁时，`finally` 都应承担清理职责。
+持有文件、连接或锁时，建议使用 `try/finally`。遍历完成、异常退出或 Generator 被释放时，`finally` 可用于清理资源。
 
 ## 使用 `yield from`
 
-`yield from` 用于把另一个可迭代值的内容继续产出。它适合把多个数据源组合成一个流：
+`yield from` 可以把另一个可迭代对象中的 key 和 value 继续产出：
 
 ```php
+function local_users(): iterable
+{
+    yield 'alice';
+    yield 'bob';
+}
+
 function all_users(): iterable
 {
-    yield from ["alice", "bob"];
-    yield from ["carol", "dave"];
-}
-
-foreach (all_users() as $user) {
-    echo $user, "\n";
+    yield from local_users();
+    yield from ['carol', 'dave'];
 }
 ```
 
-也可以委托给另一个 Generator：
+TypePHP 的 `yield from` 支持：
+
+- 数组；
+- `Iterator`；
+- `IteratorAggregate`；
+- ZendPHP 返回的 `Generator`；
+- TypePHP 返回的 `FiberGenerator`。
+
+对于第三方扩展提供的特殊 `Traversable` 对象，若不能直接委托，建议先转换为数组，或使用明确实现 `Iterator`/`IteratorAggregate` 的适配对象。
+
+### 获取被委托 Generator 的返回值
+
+`yield from` 表达式的结果是被委托 Generator 的返回值：
 
 ```php
-function range_values(int $from, int $to): iterable
+function child(): iterable
 {
-    for ($i = $from; $i <= $to; $i++) {
-        yield $i;
-    }
+    yield 1;
+    yield 2;
+    return 3;
 }
 
-function even_then_odd(): iterable
+function parent_generator(): iterable
 {
-    yield from range_values(2, 6);
-    yield from range_values(1, 5);
+    $result = yield from child();
+    echo $result, "\n"; // 3
 }
 ```
 
-`yield from` 支持数组、普通 `Iterator`、`IteratorAggregate`、PHP Generator 和 TypePHP Generator。对于少见的扩展内部 `Traversable` 对象，兼容性可能与原生 PHP 不完全一致；遇到这类对象时，建议先转换为数组或使用项目中明确实现 `Iterator` 的对象。
+委托普通数组或普通 Iterator 时，`yield from` 的结果为 `null`。
 
 ## Generator 的返回值
 
-`yield` 产生的是迭代值，函数末尾的 `return` 则是 Generator 完成后的返回值。完成后可通过 `getReturn()` 读取：
+`yield` 产生迭代值，函数末尾的 `return` 是 Generator 完成后的返回值。正常执行完毕后，可以通过 `getReturn()` 读取：
 
 ```php
 function task(): iterable
 {
-    yield "starting";
-    yield "working";
-
-    return "done";
+    yield 'starting';
+    yield 'working';
+    return 'done';
 }
 
 $generator = task();
@@ -126,112 +141,176 @@ foreach ($generator as $message) {
 echo $generator->getReturn(), "\n"; // done
 ```
 
-必须先让 Generator 正常执行完毕，再调用 `getReturn()`。
+Generator 尚未完成或因异常失败时，不应读取 `getReturn()`。
 
 ## `send()` 与 `throw()`
 
-大多数业务代码只需要 `foreach`。如果需要双向协作，可以把 `yield` 当成表达式接收 `send()` 传入的值：
+大多数业务代码只需要 `foreach`。需要双向通信时，可以用 `send()` 把值传回 Generator：
 
 ```php
 function receiver(): iterable
 {
-    $name = yield "ready";
-    yield "hello, " . $name;
+    $name = yield 'ready';
+    yield 'hello, ' . $name;
 }
 
 $generator = receiver();
-echo $generator->current(), "\n"; // ready
-echo $generator->send("TypePHP"), "\n"; // hello, TypePHP
+
+echo $generator->current(), "\n";        // ready
+echo $generator->send('TypePHP'), "\n"; // hello, TypePHP
 ```
 
-`throw($exception)` 可以把异常抛回 Generator 内部，Generator 可以在函数体中用 `try/catch/finally` 处理它。除非确实需要协作式控制流程，否则优先使用普通异常和 `foreach`，代码会更容易维护。
-
-## 返回类型声明
-
-TypePHP 中，Generator 返回的是可迭代对象。推荐使用以下返回类型：
+`throw($exception)` 会在当前暂停位置向 Generator 内部抛出异常，可由函数体中的 `try/catch/finally` 处理：
 
 ```php
-function records(): iterable { /* ... */ }
-function records(): Iterator { /* ... */ }
-function records(): Traversable { /* ... */ }
+function worker(): iterable
+{
+    try {
+        yield 'waiting';
+    } catch (RuntimeException $e) {
+        yield 'recovered';
+    }
+}
+
+$generator = worker();
+$generator->current();
+echo $generator->throw(new RuntimeException()), "\n";
 ```
 
-也可以使用 `object`、`mixed`，或包含上述类型的联合类型。
+除非确实需要协作式控制流程，否则优先使用 `foreach` 和普通异常，代码更容易维护。
 
-不要把 Generator 的返回类型写成 PHP 内置的 `Generator`：
+## 匿名函数和箭头函数
+
+匿名函数和箭头函数中也可以使用 `yield`：
 
 ```php
-// 不支持
-function records(): Generator
+$factory = function (int $count): iterable {
+    for ($i = 0; $i < $count; $i++) {
+        yield $i;
+    }
+};
+
+$single = fn (): iterable => yield 'value';
+
+foreach ($factory(3) as $value) {
+    echo $value, "\n";
+}
+```
+
+匿名 Generator 会正常捕获 `use` 变量；非静态闭包也可以使用绑定的 `$this`。
+
+## 返回类型
+
+面向 TypePHP 和 ZendPHP 共用的代码，推荐声明通用可迭代类型：
+
+```php
+function records(): iterable { yield 1; }
+function recordsIterator(): Iterator { yield 1; }
+function recordsTraversable(): Traversable { yield 1; }
+```
+
+也可以使用 `object`、`mixed`，或包含兼容类型的联合类型。
+
+TypePHP 编译后的 Generator 实际类型是全局类 `\FiberGenerator`，因此仅在 TypePHP 中运行的代码也可以声明精确类型：
+
+```php
+function records(): \FiberGenerator
 {
     yield 1;
 }
 ```
 
-TypePHP 返回的是 `TypePHP\FiberGenerator`。它实现了 `Iterator`，因此可以正常 `foreach`、调用 `current()`、`next()`、`valid()`、`send()`、`throw()` 和 `getReturn()`；但它不是 PHP 内置的 `Generator`。
+`FiberGenerator` 位于全局命名空间，不是 `TypePHP\FiberGenerator`。不过 ZendPHP 本身没有这个类；需要让同一份源码直接运行在 ZendPHP 中时，不要使用 `\FiberGenerator` 返回类型，应使用 `iterable`、`Iterator` 或 `Traversable`。
 
-因此不要依赖以下行为：
+## `FiberGenerator` 可用方法
+
+通常只需用 `foreach`，也可以按需调用以下方法：
+
+| 方法 | 用途 |
+|---|---|
+| `current(): mixed` | 获取当前 value |
+| `key(): mixed` | 获取当前 key |
+| `valid(): bool` | 判断当前位置是否有效 |
+| `next(): void` | 继续执行到下一个 `yield` |
+| `rewind(): void` | 开始迭代；已经越过第一个 `yield` 后不能重新倒带 |
+| `send(mixed $value): mixed` | 向当前 `yield` 发送值并继续执行 |
+| `throw(Throwable $exception): mixed` | 在当前暂停位置抛入异常 |
+| `getReturn(): mixed` | 获取正常执行结束后的返回值 |
+
+`FiberGenerator` 实现了 `Iterator`，可以传给接受 `Iterator`、`Traversable` 或 `iterable` 的代码。
+
+不要直接 `new FiberGenerator()`，也不要继承、clone 或序列化该对象。Generator 对象应始终由包含 `yield` 的函数创建。
+
+## 与 ZendPHP Generator 的差异
+
+TypePHP 保持常用的迭代、异常和返回值行为，但返回对象不是 ZendPHP 内置的 `Generator`。
+
+| 项目 | ZendPHP | TypePHP |
+|---|---|---|
+| 实际对象类型 | `Generator` | `FiberGenerator` |
+| `instanceof Iterator` | `true` | `true` |
+| `instanceof Generator` | `true` | `false` |
+| 推荐的跨环境返回类型 | `iterable`/`Iterator`/`Traversable` | `iterable`/`Iterator`/`Traversable` |
+| 精确返回类型 | `Generator` | `FiberGenerator` |
+| `ReflectionGenerator` | 支持 | 不支持 |
+| clone、序列化 | 不支持 | 不支持 |
+
+因此不要编写依赖具体 Generator 类名的跨环境判断：
 
 ```php
-$generator instanceof Generator; // 不要依赖，结果为 false
-new ReflectionGenerator($generator); // 不支持
-```
+// 跨环境代码不推荐
+if ($result instanceof Generator) {
+}
 
-业务代码也不应直接创建、继承、clone 或序列化 `TypePHP\FiberGenerator`。
-
-## 参数限制
-
-Generator 可以使用普通参数、默认值、对象参数、联合类型参数和类方法中的 `$this`：
-
-```php
-class Report
-{
-    public function pages(int $count, string $prefix = "page"): iterable
-    {
-        for ($i = 1; $i <= $count; $i++) {
-            yield $prefix . " " . $i;
-        }
-    }
+// 推荐
+if ($result instanceof Traversable) {
 }
 ```
 
-目前不支持以下 Generator 参数形式：
+`get_class()`、`var_dump()`、Reflection 信息、异常调用栈和调试器中显示的栈结构，也可能与 ZendPHP 不同。业务逻辑不应依赖这些展示细节。
 
-```php
-function invalid_one(&$value): iterable { yield $value; } // 不支持按引用参数
-function invalid_two(...$values): iterable { yield 1; }   // 不支持可变参数
-function invalid_three(&...$values): iterable { yield 1; } // 不支持按引用可变参数
-```
+## 当前限制
 
-参数类型会在调用 Generator 时检查；函数体仍按迭代进度延迟执行。
+### 不支持引用 Generator
 
-## 引用限制
+当前不支持：
 
-TypePHP Generator 只产生普通值，不支持通过 Generator 传递元素引用。以下写法不支持：
+- Generator 函数或方法按引用返回；
+- 按引用 `yield`；
+- `foreach ($generator as &$value)`；
+- 依赖 `current()`、`send()`、`throw()` 或 `getReturn()` 返回引用。
+
+以下代码不能编译：
 
 ```php
 function &values(): iterable
 {
-    yield $value;
+    yield 1;
 }
 
 foreach (values() as &$value) {
 }
 ```
 
-也就是说，不支持：
+需要修改原始数据时，建议产出对象，或显式调用负责修改数据的方法。
 
-- Generator 函数按引用返回；
-- 按引用 `yield`；
-- 对 Generator 使用按引用 `foreach`；
-- 依赖 `current()`、`send()`、`throw()` 或 `getReturn()` 返回引用。
+### Generator 参数限制
 
-如果需要修改原始数据，请直接传递数组、对象，或使用明确的引用参数调用，而不是通过 Generator 的迭代值传递引用。
+Generator 支持普通参数、默认值、类型声明、联合类型和方法中的 `$this`，但当前不支持按引用参数和可变参数：
+
+```php
+function invalidReference(&$value): iterable { yield $value; }
+function invalidVariadic(...$values): iterable { yield 1; }
+function invalidVariadicReference(&...$values): iterable { yield 1; }
+```
+
+参数类型在调用 Generator 函数时检查；Generator 函数体仍然延迟到开始迭代时执行。
 
 ## 使用建议
 
-- 数据量不大、需要随机访问时，优先返回数组。
-- 需要边读取边处理、避免一次性占用大量内存时，使用 Generator。
-- 只读迭代优先使用 `foreach`。
-- 只有确实需要双向通信时才使用 `send()` 或 `throw()`。
-- 不要依赖 Generator 的具体类名、反射行为、调试输出、序列化或 clone 行为与 PHP 内置 `Generator` 完全相同。
+- 数据量较小且需要随机访问、排序或重复遍历时，优先返回数组。
+- 处理大文件、分页数据或持续数据流时，优先使用 Generator。
+- 只读迭代优先使用 `foreach`，不要手动管理迭代状态。
+- 需要跨 TypePHP 与 ZendPHP 运行时，返回类型优先写 `iterable`、`Iterator` 或 `Traversable`。
+- 使用 `try/finally` 释放 Generator 持有的文件、连接、锁等资源。
+- 不要依赖具体类名、Reflection、调试输出或调用栈与 ZendPHP 完全一致。

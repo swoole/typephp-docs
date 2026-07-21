@@ -883,6 +883,8 @@ echo $x->contains("test");
 
 TypePHP 使用类级 `ExtensionProvider` 声明类型扩展方法。Provider 的目标由根命名空间 `Type` 的类型符号指定，类中的 `public static` 方法会成为该类型的扩展方法。根命名空间 `Type` 与编译器内部的 `TypePHP\Type` 不同。
 
+以下示例位于全局命名空间。如果代码位于其他命名空间，应写 `#[\ExtensionProvider(\Type::Int)]`，或者先执行 `use \ExtensionProvider; use \Type;`，再使用相同的短名称。Attribute、目标类型和 `ClassName::class` 均遵循 PHP 的标准名称解析规则，并支持 `use ... as ...` 别名。
+
 ### 14.1 Int 扩展
 
 ```php

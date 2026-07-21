@@ -35,10 +35,12 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 ### `-m, --mode <mode>` — 构建模式
 
 - `bin`（默认）：编译为独立的可执行文件
+- `lib`：编译为可供其他 TypePHP 项目链接的动态库
 - `ext`：编译为 PHP 扩展（`.so`/`.dll`）
 
 ```shell
 ./tpc myext/ -m ext -o myext
+./tpc project.yml -m lib
 ```
 
 ### `-d, --debug` — 调试模式

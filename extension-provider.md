@@ -2,6 +2,8 @@
 
 `ExtensionProvider` 可以在不修改原类型的情况下，为对象、PHP 基础类型或任意表达式增加方法。它是 TypePHP 的编译期功能，只能在 TypePHP 静态代码中使用。
 
+所有内建 Attribute 的共同命名空间规则参见[编译期注解](compile-time-attributes.md)。
+
 Provider 是一个带有 `#[ExtensionProvider(...)]` 的普通类。类中的 `public static` 方法会成为扩展方法，静态方法的第一个参数是接收者：
 
 ```php
@@ -189,7 +191,42 @@ function main(): void
 }
 ```
 
-`ExtensionProvider` 位于根命名空间。在带命名空间的文件中可以写 `#[\ExtensionProvider(...)]`，也可以先写 `use ExtensionProvider;`。
+`ExtensionProvider` 位于根命名空间，并完全遵循 PHP 的名称解析规则。在带命名空间的文件中，可以使用完全限定名：
+
+```php
+namespace App\Extension;
+
+#[\ExtensionProvider(\Type::String)]
+final class StringExtensions {}
+```
+
+也可以先导入根命名空间中的 `ExtensionProvider` 和 `Type`：
+
+```php
+namespace App\Extension;
+
+use \ExtensionProvider;
+use \Type;
+
+#[ExtensionProvider(Type::String)]
+final class StringExtensions {}
+```
+
+`use ... as ...` 别名同样支持：
+
+```php
+namespace App\Extension;
+
+use \ExtensionProvider as Provider;
+use \Type as TargetType;
+
+#[Provider(TargetType::String)]
+final class StringExtensions {}
+```
+
+如果没有相应的 `use`，命名空间中的 `#[ExtensionProvider(Type::String)]` 会按照 PHP 规则解析为 `App\Extension\ExtensionProvider` 和 `App\Extension\Type`，不会被当作根命名空间中的 TypePHP 编译期符号。只有最终解析结果为根命名空间 `ExtensionProvider` 的 Attribute 才会注册扩展方法。
+
+对象目标也使用同一套规则。`User::class` 可以通过 `use App\Model\User;` 导入，也可以写成完整类名 `\App\Model\User::class`；`use ... as ...` 别名同样有效。
 
 ### 对象方法优先级
 
