@@ -60,6 +60,7 @@ Component 是最简单的入门方式，不需要 Node.js 或 Jco。
 | [Wasmtime](https://docs.wasmtime.dev/cli-install.html) | 47 或更高 | 是 | 运行和测试 WASI 0.2 Component |
 | [Jco](https://bytecodealliance.github.io/jco/) | 1 或更高 | 仅 `browser` profile | 将 Component 转换为浏览器 ESM |
 | [wit-bindgen](https://github.com/bytecodealliance/wit-bindgen) | 固定为 `wit-bindgen-cli 0.60.0` | 仅 `mode: library` | 为 `#[WasmExport]` 生成 Canonical ABI 绑定；由 PHPX SDK 随包提供 |
+| [WABT](https://github.com/WebAssembly/wabt) | 推荐最新稳定版 | 否 | 调试 Jco 生成的 Core Wasm，不参与 TypePHP 构建 |
 
 普通用户不需要安装 Rust 或 Cargo，也不应自行选择其他版本的 `wit-bindgen`。完整的 TypePHP/PHPX 发行包已经包含与当前编译器匹配的宿主平台二进制文件；`tpc` 会从 PHPX 安装目录中调用它。
 
@@ -139,6 +140,45 @@ wasm32-unknown-wasip2
 ```
 
 TypePHP 构建时还会检查 `wasm32-wasip2-clang`、`llvm-ar`、`llvm-ranlib` 和 `llvm-nm`。版本或目标不符合要求时会在开始编译前报错。WABT 不是 TypePHP 的构建依赖，也不能替代 WASI SDK。
+
+### 可选：安装 WABT 调试 Core Wasm
+
+[WABT（WebAssembly Binary Toolkit）](https://github.com/WebAssembly/wabt) 是一组 Core WebAssembly 分析工具。TypePHP、WASI SDK、Jco 和 Wasmtime 都不会依赖它，普通用户可以不安装。
+
+需要分析生成代码时，从 [WABT Releases](https://github.com/WebAssembly/wabt/releases) 下载与宿主操作系统和 CPU 架构匹配的最新稳定版，解压后将 `bin` 目录加入 `PATH`。例如安装到 `/opt/wabt-1.0.41`：
+
+```bash
+export PATH="/opt/wabt-1.0.41/bin:$PATH"
+wasm-objdump --version
+```
+
+Windows PowerShell 示例：
+
+```powershell
+$env:Path = "C:\Tools\wabt-1.0.41\bin;$env:Path"
+wasm-objdump --version
+```
+
+常用工具：
+
+| 命令 | 用途 |
+|---|---|
+| `wasm-objdump` | 查看 section、import、export 和指令反汇编 |
+| `wasm2wat` | 将 Core Wasm 转换为便于阅读的 WAT 文本 |
+| `wasm-validate` | 验证 Core Wasm 的二进制格式和指令类型 |
+| `wasm-stats` | 统计指令、函数和 section |
+| `wasm-strip` | 删除 name 或其他自定义 section；TypePHP 产物通常已经完成 stripping |
+
+TypePHP 输出的 `app.wasm` 是 Component Model 容器，而 WABT 主要面向 Core Wasm。browser profile 经 Jco 转换后，可以检查其中的 core module：
+
+```bash
+wasm-objdump -x generated/program.core.wasm
+wasm2wat generated/program.core.wasm -o program.wat
+wasm-validate generated/program.core.wasm
+wasm-stats generated/program.core.wasm
+```
+
+不要因为旧版 WABT 无法识别新异常处理指令，就判断 TypePHP 产物一定损坏。系统软件源中的 WABT 可能明显落后于 WASI SDK。分析完整 WASI 0.2 Component 时，应优先使用 [wasm-tools](https://github.com/bytecodealliance/wasm-tools) 或 Wasmtime；WABT 更适合分析 Jco 拆出的 `program.core.wasm`。
 
 ### TypePHP WASI 运行库
 
@@ -282,6 +322,57 @@ build-dir: build
 output: component/browser-app.wasm
 wasm-browser-dir: generated
 ```
+
+### 导出函数供 JavaScript 调用
+
+需要由 JavaScript 多次调用 TypePHP 函数时，使用 library component：
+
+```yaml
+name: calculator
+mode: library
+wasm: browser
+wasm-package: app:calculator@1.0.0
+wasm-world: calculator
+
+sources:
+  - src
+
+build-dir: build
+output: component/calculator.wasm
+wasm-browser-dir: generated
+```
+
+使用 `#[WasmExport]` 标记需要发布的函数：
+
+```php
+#[WasmExport]
+function add(int $left, int $right): int
+{
+    return $left + $right;
+}
+
+#[WasmExport(name: 'greet-user')]
+function greetUser(string $name): string
+{
+    return "Hello, {$name}";
+}
+```
+
+JavaScript 必须先创建 runtime，再调用导出方法：
+
+```js
+const component = await instantiate(null, wasi.getImportObject());
+const runtime = await component.api.createRuntime();
+
+try {
+    console.log(await runtime.add(20n, 22n));
+    console.log(await runtime.greetUser('TypePHP'));
+} finally {
+    runtime[Symbol.dispose]();
+}
+```
+
+当前导出 ABI 支持 `bool`、`int`、`float`、`string`、对应的 nullable 类型和 `void`。PHP `int` 在 JavaScript 中对应 `bigint`。数组和对象目前需要编码为 JSON 字符串。完整的类型限制、异常行为、NTS 串行调用规则和 ZendVM 生命周期参见 [`WasmExport`](wasm-export.md)。
 
 `wasm` **只能**是 `component` 或 `browser`。以下配置无效：
 

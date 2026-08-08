@@ -33,6 +33,7 @@ Attribute 参数支持字面量、常量、非空数组、嵌套数组和 `new` 
 | [`#[Hot]`](hot.md) | 函数、方法 | 提示编译器优先优化高频执行路径 |
 | [`#[Cold]`](cold.md) | 函数、方法 | 提示编译器按低频路径优化函数 |
 | [`#[Constructor]`](constructor.md) | 实例属性 | 根据属性生成 public 构造方法 |
+| [`#[WasmExport]`](wasm-export.md) | 函数 | 将静态类型函数导出为 WASI 0.2 Component 的 WIT 接口 |
 
 ## 命名空间规则
 

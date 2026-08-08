@@ -31,6 +31,7 @@
     * [Hot](hot.md)
     * [Cold](cold.md)
     * [Constructor](constructor.md)
+    * [WasmExport](wasm-export.md)
 * [兼容性](compatible.md)
     * [Yield 与 Generator](generator.md)
     * [命名限制](naming-restrictions.md)

@@ -13,6 +13,7 @@ output: build/myapp
 # name: myapp
 
 # 构建模式：bin（可执行文件）/ lib（动态库）/ ext（PHP 扩展）
+# WASM 下还可使用 library，生成具有 WIT 导出接口的 Component
 mode: bin
 
 # 优化级别、并行任务和调试开关
@@ -49,6 +50,9 @@ target-platform: aarch64-linux-gnu
 # WASI 0.2 输出：仅允许 component 或 browser
 # wasm: component
 # wasm-browser-dir: generated
+# library 模式可配置 WIT 标识
+# wasm-package: app:calculator@1.0.0
+# wasm-world: calculator
 
 # 自定义 C++ 编译器（gcc/g++/clang/clang++ 等）
 cpp-compiler: clang++
@@ -104,7 +108,7 @@ resource:
 |--------|------|------|
 | `output` | `string` | 输出文件路径，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
 | `name` | `string` | 仅设置输出文件名，不改变输出目录。例如 `name: myapp` 会在当前工作目录生成 `./myapp` |
-| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。支持 `bin`/`binary`/`cli`（可执行文件）、`lib`/`library`/`shared`（动态库）和 `ext`/`extension`（PHP 扩展） |
+| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。Host 构建支持 `bin`/`binary`/`cli`、`lib`/`library`/`shared` 和 `ext`/`extension`；WASM 构建使用命令模式或 `lib`/`library`/`reactor` library component 模式 |
 | `optimize` | `integer` | 优化级别，等价于 `-O`，取值范围 `0` ~ `3` |
 | `job` | `integer` | 并行编译任务数，等价于 `-j` / `--job` |
 | `debug` | `boolean` | 启用调试模式，等价于 `-d` / `--debug` |
@@ -122,6 +126,8 @@ resource:
 | `target-platform` | `string` | 交叉编译目标平台三元组，等价于 `--target-platform` |
 | `wasm` | `string` | 启用 WASI 0.2 构建。只允许 `component` 或 `browser`，不接受布尔值 |
 | `wasm-browser-dir` | `string` | `wasm: browser` 时 Jco 浏览器模块的输出目录；相对路径以 YAML 所在目录为基准 |
+| `wasm-package` | `string` | library component 的 WIT package，格式为 `namespace:name@major.minor.patch`；默认根据项目名称生成 |
+| `wasm-world` | `string` | library component 的 WIT world 名称，使用小写连字符命名；默认使用项目名称 |
 | `cpp-compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
 | `cxx-flags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
 | `ld-flags` | `string` 或 `array` | 额外的链接选项，会追加到链接命令中 |
@@ -158,6 +164,24 @@ sources:
 output: component/browser-app.wasm
 wasm-browser-dir: generated
 ```
+
+需要从 JavaScript 或其他 Component Host 多次调用 TypePHP 函数时，使用 library 模式：
+
+```yaml
+name: calculator
+mode: library
+wasm: browser
+wasm-package: app:calculator@1.0.0
+wasm-world: calculator
+
+sources:
+  - src
+
+output: component/calculator.wasm
+wasm-browser-dir: generated
+```
+
+library 模式至少需要一个 [`#[WasmExport]`](wasm-export.md) 函数，不使用 `main()` 作为自动入口。
 
 `wasm` 不是 boolean 开关，`wasm: true` 和 `wasm: false` 都是无效配置。WASM 项目省略 `target-platform` 时默认使用 `wasm32-wasip2`。详细的工具链安装、运行方法、浏览器 Host 和平台限制见[编译到 WebAssembly](wasm.md)。
 
