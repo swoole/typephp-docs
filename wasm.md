@@ -531,18 +531,34 @@ Core
 date
 pcre
 bcmath
+bz2
 calendar
 ctype
+dom
+exif
+fileinfo
 filter
 hash
 json
 lexbor
+libxml
+mbstring
+openssl
+PDO
+pdo_sqlite
 random
 Reflection
+SimpleXML
+sodium
 uri
 SPL
 tokenizer
 standard
+xml
+xmlreader
+xmlwriter
+zip
+zlib
 ```
 
 TypePHP 应用本身也会注册一个与项目名称对应的运行时模块，因此 `get_loaded_extensions()` 的实际结果通常还会出现一个 `typephp_*` 条目；它属于当前应用，不是额外的 PHP 标准扩展。
@@ -588,13 +604,15 @@ WASI 运行环境不等同于完整 Linux。当前明确不支持：
 - 反引号 shell 执行语法。
 - 原始 TCP/UDP socket，以及 `stream_socket_*()`、`socket_*()`、`fsockopen()`。
 - `pcntl_*()`、`posix_*()` 和信号处理。
-- Curl、MySQL、PDO 等未静态编入 WASI Runtime 的扩展。
+- Curl、MySQL 等未静态编入 WASI Runtime 的扩展。
 - 动态加载 PHP 扩展。
 - 多线程和 ZTS。
 
 对于进程、shell、原始 socket 和信号等已明确列入限制的 API，编译器会在静态识别后直接报 Fatal Error，避免程序退化为链接错误，或在 Wasmtime 与 Chrome 中产生不同语义。未静态编入 Runtime 的 PHP 扩展同样不可使用。
 
 PHP 异常和 Zend bailout 仍受支持。时间、随机数、标准流、参数、环境变量、受授权文件系统和 HTTP GET 由 WASI 0.2 Host 提供。
+
+WASI 中的 OpenSSL 扩展采用 crypto-only 构建，保留加密、解密、摘要、签名、密钥和证书处理，不包含 TLS stream transport。HTTP/HTTPS 请求由 WASI HTTP Component 提供，与 OpenSSL 扩展相互独立。PDO SQLite 支持内存数据库和预开放目录中的数据库文件，但不支持运行时加载 SQLite 动态扩展。
 
 ## 产物与部署
 
