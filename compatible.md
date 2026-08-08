@@ -230,8 +230,9 @@ Warning: Undefined variable $testVar in undef-var.php on line 4
 NULL
 ```
 
-## 注解语法
-TypePHP 编译器支持注解语法，但当前不支持非空数组和 `new` 表达式作为注解参数。
+## Attribute 参数
+
+TypePHP 支持 PHP Attribute 语法，包括非空数组、嵌套数组、常量表达式和 `new` 表达式参数。
 
 ```php
 #[MyAttribute]
@@ -239,19 +240,40 @@ TypePHP 编译器支持注解语法，但当前不支持非空数组和 `new` �
 #[MyAttribute(value: 1234)]
 #[MyAttribute(MyAttribute::VALUE)]
 #[MyAttribute([])]
+#[MyAttribute([1, 2, 3, 'str', true])]
+#[MyAttribute(new AttributeOptions(enabled: true))]
 #[MyAttribute(100 + 200)]
 class Thing
 {
 }
 ```
 
-下面的注解语法暂时无法支持：
+Attribute 参数仍然不能包含普通函数调用：
+
 ```php
-#[MyAttribute([1, 2, 3, 'str', bool])]
+#[MyAttribute(loadOptions())] // 编译错误
 class Thing
 {
 }
 ```
+
+### C 扩展兼容性
+
+TypePHP 保证 PHP 用户态的 `ReflectionAttribute::getArguments()`、`ReflectionAttribute::newInstance()` 和 `ReflectionAttribute::__toString()` 可以读取包含非空数组、`new`、闭包等请求期值的 Attribute 参数。
+
+但是，第三方 C 扩展直接使用 Zend Attribute 数据结构或底层 C API 读取参数的方式不受支持，例如：
+
+- 直接访问 `zend_attribute`、`zend_attribute_arg.value`；
+- 直接调用 `zend_get_attribute_value()`；
+- 替换 `ReflectionAttribute::getArguments()` 或 `ReflectionAttribute::newInstance()` 的 internal function handler。
+
+TypePHP 会在 Attribute 的持久化参数中保存请求期工厂标记，并在 PHP Reflection 方法执行时将其转换为普通请求期 `zval`。上述 C 扩展路径可能绕过该转换，读取到内部标记；如果扩展同时替换 ReflectionAttribute handler，还可能覆盖 TypePHP 的 handler 或被 TypePHP 覆盖。因此，即使只包含简单参数的 Attribute 当前看似可用，也不要依赖这种未受支持的调用方式。
+
+已知示例是 [`symfony/php-ext-deepclone`](https://github.com/symfony/php-ext-deepclone)：该扩展包含直接介入 ReflectionAttribute 内部处理流程的实现，不能保证与 TypePHP 的请求期 Attribute 参数工厂兼容。
+
+需要兼容 TypePHP 时，C 扩展应通过 PHP 用户态 ReflectionAttribute 方法取得参数，或者由扩展自行提供明确适配 TypePHP 的桥接实现。
+
+类常量和属性默认值等其他位置具有不同的 `new` 表达式限制，完整规则参见[常量表达式](constant-expressions.md)。
 
 ## Trait 中 self 的处理
 
@@ -332,3 +354,46 @@ class MyClass {
     }
 }
 ```
+
+## 协程入口必须捕获异常
+
+使用 Swoole 或 Swow 协程时，**必须在每个协程入口的回调内部使用 `try/catch` 捕获 `\Throwable`**。异常不能穿透至其他协程，也不能依赖协程创建调用外围的 `try/catch` 处理。
+
+这项要求适用于所有可能进入新协程或独立事件回调的入口，包括：
+
+- `Swoole\Coroutine\run()`、`Swoole\Coroutine::create()` 和 `go()`；
+- Swoole Server 的 `onRequest`、`onMessage`、`onTask` 等事件回调；
+- Timer、Event、Process 以及其他由扩展调度的回调。
+
+正确写法是在协程回调开始执行时立即建立异常边界：
+
+```php
+\Swoole\Coroutine\run(static function (): void {
+    try {
+        runApplication();
+    } catch (\Throwable $exception) {
+        error_log((string) $exception);
+    }
+});
+```
+
+不能只在创建协程的代码外层捕获：
+
+```php
+// 错误：外层 catch 不能捕获从协程回调中穿出的异常
+try {
+    \Swoole\Coroutine\run(static function (): void {
+        runApplication();
+    });
+} catch (\Throwable $exception) {
+    error_log((string) $exception);
+}
+```
+
+未在协程入口内部捕获的异常可能越过 Zend 回调边界，使进程以类似以下信息中止：
+
+```text
+terminate called after throwing an instance of '_zend_object*'
+```
+
+必须捕获 `\Throwable`，不能只捕获 `\Exception`，因为 PHP `Error` 同样需要在当前协程内部处理。捕获后应记录完整异常信息，并由当前协程明确决定结束本次任务、关闭连接或终止 Worker；不得将异常重新抛向协程边界之外。

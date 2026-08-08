@@ -46,6 +46,10 @@ cxx-std: c++20
 march: native
 target-platform: aarch64-linux-gnu
 
+# WASI 0.2 输出：仅允许 component 或 browser
+# wasm: component
+# wasm-browser-dir: generated
+
 # 自定义 C++ 编译器（gcc/g++/clang/clang++ 等）
 cpp-compiler: clang++
 
@@ -116,6 +120,8 @@ resource:
 | `cxx-std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
 | `march` | `string` | 目标 CPU 指令集（如 `native`, `x86-64-v3`），等价于 `--march` |
 | `target-platform` | `string` | 交叉编译目标平台三元组，等价于 `--target-platform` |
+| `wasm` | `string` | 启用 WASI 0.2 构建。只允许 `component` 或 `browser`，不接受布尔值 |
+| `wasm-browser-dir` | `string` | `wasm: browser` 时 Jco 浏览器模块的输出目录；相对路径以 YAML 所在目录为基准 |
 | `cpp-compiler` | `string` | 自定义 C++ 编译器（如 `g++`、`clang++`） |
 | `cxx-flags` | `string` 或 `array` | 额外的 C++ 编译选项，会追加到编译命令中 |
 | `ld-flags` | `string` 或 `array` | 额外的链接选项，会追加到链接命令中 |
@@ -126,6 +132,34 @@ resource:
 | `link-libs` | `array` | 要链接的库，等价于 `-l`。每项为库名（不含 `lib` 前缀和 `.so`/`.a` 后缀） |
 | `link-paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
+
+## WASM 项目
+
+使用 Wasmtime 运行的项目配置为 Component：
+
+```yaml
+name: hello
+mode: bin
+wasm: component
+sources:
+  - src
+build-dir: build
+output: dist/hello.wasm
+```
+
+使用浏览器运行时显式选择 browser profile：
+
+```yaml
+name: browser-app
+mode: bin
+wasm: browser
+sources:
+  - src
+output: component/browser-app.wasm
+wasm-browser-dir: generated
+```
+
+`wasm` 不是 boolean 开关，`wasm: true` 和 `wasm: false` 都是无效配置。WASM 项目省略 `target-platform` 时默认使用 `wasm32-wasip2`。详细的工具链安装、运行方法、浏览器 Host 和平台限制见[编译到 WebAssembly](wasm.md)。
 
 ## name 与 output 的差异
 

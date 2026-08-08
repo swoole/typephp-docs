@@ -1,13 +1,13 @@
-# 扩展方法提供者
+# MethodsFor 编译期 Attribute
 
-`ExtensionProvider` 可以在不修改原类型的情况下，为对象、PHP 基础类型或任意表达式增加方法。它是 TypePHP 的编译期功能，只能在 TypePHP 静态代码中使用。
+`MethodsFor` 可以在不修改原类型的情况下，为对象、PHP 基础类型或任意表达式增加方法。它是 TypePHP 的编译期功能，只能在 TypePHP 静态代码中使用。
 
 所有内建 Attribute 的共同命名空间规则参见[编译期注解](compile-time-attributes.md)。
 
-Provider 是一个带有 `#[ExtensionProvider(...)]` 的普通类。类中的 `public static` 方法会成为扩展方法，静态方法的第一个参数是接收者：
+Provider 是一个带有 `#[MethodsFor(...)]` 的普通类。类中的 `public static` 方法会成为扩展方法，静态方法的第一个参数是接收者：
 
 ```php
-#[ExtensionProvider(Type::String)]
+#[MethodsFor(Type::String)]
 final class StringExtensions
 {
     public static function surround(
@@ -52,7 +52,7 @@ function main(): void
 一个 Provider 只声明一个目标，但同一目标可以由多个 Provider 类共同扩展：
 
 ```php
-#[ExtensionProvider(Type::Int)]
+#[MethodsFor(Type::Int)]
 final class IntFormatting
 {
     public static function toBytes(int $value): string
@@ -61,7 +61,7 @@ final class IntFormatting
     }
 }
 
-#[ExtensionProvider(Type::Int)]
+#[MethodsFor(Type::Int)]
 final class IntPredicates
 {
     public static function isEven(int $value): bool
@@ -85,7 +85,7 @@ function main(): void
 `Type::Any` 只匹配静态类型已经是 `any` 的接收者，不会匹配所有具体类型：
 
 ```php
-#[ExtensionProvider(Type::Any)]
+#[MethodsFor(Type::Any)]
 final class AnyExtensions
 {
     public static function debugType(any $value): string
@@ -107,7 +107,7 @@ function inspect(any $value): void
 字符串目标 `'*'` 表示该方法可以作用于任何接收者。第一个参数必须声明为 `any`：
 
 ```php
-#[ExtensionProvider('*')]
+#[MethodsFor('*')]
 final class DebugExtensions
 {
     public static function inspectValue(any $value, string $label = 'value'): any
@@ -137,7 +137,10 @@ function main(): void
 - `Type::Any` 只匹配静态类型为 `any` 的值。
 - `'*'` 可以匹配任意静态类型。
 
-当接收者是 `any` 时，查找顺序为内置关键词方法、`Type::Any` 扩展、关键词扩展。
+当接收者是 `any` 时，查找顺序为内置关键词方法、关键词扩展、`Type::Any` 扩展。
+
+关键词扩展的方法名是全局保留的。`MethodsFor('*')` 与任何 `MethodsFor(Type::*)` 或
+`MethodsFor(ClassName::class)` Provider 不能定义同名方法，否则编译器会报告冲突；不会根据文件扫描顺序静默覆盖。
 
 ## 3. 对象扩展
 
@@ -159,7 +162,7 @@ namespace App\Extension;
 
 use App\Model\User;
 
-#[\ExtensionProvider(User::class)]
+#[\MethodsFor(User::class)]
 final class UserExtensions
 {
     public static function displayName(User $user): string
@@ -191,24 +194,41 @@ function main(): void
 }
 ```
 
-`ExtensionProvider` 位于根命名空间，并完全遵循 PHP 的名称解析规则。在带命名空间的文件中，可以使用完全限定名：
+对象 Provider 的目标必须是类，不能是接口：
+
+```php
+#[MethodsFor(SomeInterface::class)] // 编译错误
+final class InvalidExtensions {}
+```
+
+对象扩展根据 receiver 的静态类型查找，不检查运行时实际类型。顺序如下：
+
+1. 静态类型对应的类。
+2. 父类，由近到远。
+3. 如果静态阶段能够确定 receiver 一定是对象，则查找 `MethodsFor(Type::Object)`。
+
+例如，`Child extends Base` 可以使用 `MethodsFor(Base::class)` 中的方法；如果 Child 和 Base 都提供同名扩展，Child 的 Provider 优先。变量静态声明为 Base 时，即使运行时保存 Child，也只从 Base 开始查找。
+
+`Type::Object` 是对象查找的通用 fallback，但不会用于静态类型为 `any`、尚未排除 null 的 nullable 值或其他无法确定一定为对象的表达式。接口不能作为 Provider 目标，但接口类型的 receiver 一定是对象，因此在接口真实方法和类扩展均未匹配时，可以使用 `MethodsFor(Type::Object)`。
+
+`MethodsFor` 位于根命名空间，并完全遵循 PHP 的名称解析规则。在带命名空间的文件中，可以使用完全限定名：
 
 ```php
 namespace App\Extension;
 
-#[\ExtensionProvider(\Type::String)]
+#[\MethodsFor(\Type::String)]
 final class StringExtensions {}
 ```
 
-也可以先导入根命名空间中的 `ExtensionProvider` 和 `Type`：
+也可以先导入根命名空间中的 `MethodsFor` 和 `Type`：
 
 ```php
 namespace App\Extension;
 
-use \ExtensionProvider;
+use \MethodsFor;
 use \Type;
 
-#[ExtensionProvider(Type::String)]
+#[MethodsFor(Type::String)]
 final class StringExtensions {}
 ```
 
@@ -217,14 +237,14 @@ final class StringExtensions {}
 ```php
 namespace App\Extension;
 
-use \ExtensionProvider as Provider;
+use \MethodsFor as Provider;
 use \Type as TargetType;
 
 #[Provider(TargetType::String)]
 final class StringExtensions {}
 ```
 
-如果没有相应的 `use`，命名空间中的 `#[ExtensionProvider(Type::String)]` 会按照 PHP 规则解析为 `App\Extension\ExtensionProvider` 和 `App\Extension\Type`，不会被当作根命名空间中的 TypePHP 编译期符号。只有最终解析结果为根命名空间 `ExtensionProvider` 的 Attribute 才会注册扩展方法。
+如果没有相应的 `use`，命名空间中的 `#[MethodsFor(Type::String)]` 会按照 PHP 规则解析为 `App\Extension\MethodsFor` 和 `App\Extension\Type`，不会被当作根命名空间中的 TypePHP 编译期符号。只有最终解析结果为根命名空间 `MethodsFor` 的 Attribute 才会注册扩展方法。
 
 对象目标也使用同一套规则。`User::class` 可以通过 `use App\Model\User;` 导入，也可以写成完整类名 `\App\Model\User::class`；`use ... as ...` 别名同样有效。
 
@@ -276,7 +296,7 @@ $user->DISPLAYNAME();  // 大小写不同，仍匹配 displayName
 Provider 方法应尽量声明准确的返回类型，以便编译器继续解析链式方法：
 
 ```php
-#[ExtensionProvider(Type::String)]
+#[MethodsFor(Type::String)]
 final class TextExtensions
 {
     public static function quoted(string $value): string
@@ -298,7 +318,7 @@ function main(): void
 
 ## 6. 使用范围
 
-ExtensionProvider 只参与 TypePHP 静态方法调用分析。以下调用支持扩展查找：
+MethodsFor 只参与 TypePHP 静态方法调用分析。以下调用支持扩展查找：
 
 ```php
 $user->displayName();
@@ -324,6 +344,6 @@ eval('$user->displayName();');
 - ZendVM 动态脚本、普通 PHP 脚本和 `eval()` 无法调用 TypePHP 扩展方法。
 - Provider 类与目标类都必须在本次静态编译中可见。
 
-`ExtensionProvider` Attribute 会在编译阶段被读取并移除，不写入生成程序的运行时 Attribute 元数据。扩展调用会直接编译为对应 Provider 静态方法调用，不需要运行时反射，也不存在运行时扩展方法表查询。
+`MethodsFor` Attribute 会在编译阶段被读取并移除，不写入生成程序的运行时 Attribute 元数据。扩展调用会直接编译为对应 Provider 静态方法调用，不需要运行时反射，也不存在运行时扩展方法表查询。
 
 对象扩展的更多示例见[扩展对象方法](object-extension-method.md)，内置通用方法见[通用方法](universal_method.md)，内置关键词方法见[关键词方法](keyword-method.md)。

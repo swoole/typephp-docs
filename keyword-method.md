@@ -374,10 +374,10 @@ $text = $text->trim();      // String 通用方法：处理字符串
 
 ## 12. 扩展关键词方法
 
-除内置关键词方法外，可以通过类级 `ExtensionProvider` 为任意值增加项目自定义方法。这是关键词方法体系的扩展能力，不属于内置关键词方法本身。
+除内置关键词方法外，可以通过类级 `MethodsFor` 为任意值增加项目自定义方法。这是关键词方法体系的扩展能力，不属于内置关键词方法本身。
 
 ```php
-#[ExtensionProvider('*')]
+#[MethodsFor('*')]
 final class KeywordExtensions
 {
     public static function inspect(mixed $value, string $label): mixed
@@ -391,4 +391,4 @@ final class KeywordExtensions
 $value->inspect('input');
 ```
 
-扩展关键词方法必须是 `public static`，第一个参数必须为 `mixed`。其完整声明、校验和调用规则见[扩展方法提供者](extension-provider.md)。
+扩展关键词方法必须是 `public static`，第一个参数必须为 `mixed`。其完整声明、校验和调用规则见[扩展方法提供者](methods-for.md)。

@@ -33,6 +33,12 @@ public function setName(string $name): void
 private int $age = 0;
 ```
 
-`Setter` 只能用于非静态实例属性，且不接受参数。在命名空间中请使用 `#[\Setter]`，或先通过 `use \Setter;` 导入。
+`Setter` 只能用于普通的、可写的非静态实例属性，且不接受参数。以下属性不能使用 `Setter`，编译器会直接报错：
+
+- 显式声明为 `readonly` 的属性；
+- readonly class 中隐式 readonly 的属性；
+- 带有 `get` 或 `set` 属性 Hook 的属性。
+
+在命名空间中请使用 `#[\Setter]`，或先通过 `use \Setter;` 导入。
 
 使用 `-m lib` 时，发布 stub 保留 `#[Setter]`，消费项目据此获得方法声明，方法实现由动态库提供。

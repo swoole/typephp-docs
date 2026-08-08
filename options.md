@@ -159,6 +159,29 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 
 > **注意**：GCC 交叉编译通常还需要安装对应的交叉编译工具链（如 `g++-aarch64-linux-gnu`）。Clang 自带交叉编译支持，只需指定 `--target` 即可。可通过 YAML 配置 `cpp-compiler` 指定交叉编译器路径。
 
+### `--wasm[=profile]` — 编译到 WASI 0.2
+
+将 TypePHP 程序编译为 WASI 0.2 Component。裸 `--wasm` 默认使用 `component` profile：
+
+```shell
+./tpc --wasm hello.php
+./tpc --wasm=component hello.php
+```
+
+两种写法都只生成 `hello.wasm`，不需要 Jco。使用 Wasmtime 运行：
+
+```shell
+wasmtime hello.wasm
+```
+
+需要生成浏览器 ESM 时显式使用：
+
+```shell
+./tpc --wasm=browser hello.php
+```
+
+browser profile 要求 `jco` 位于 `PATH`。WASM 模式默认目标是 `wasm32-wasip2`；详细环境要求、`project.yml` 配置和运行方式见[编译到 WebAssembly](wasm.md)。
+
 
 ### `--lto` — 链接时优化（Link Time Optimization）
 

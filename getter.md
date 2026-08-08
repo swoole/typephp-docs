@@ -56,6 +56,8 @@ public function getActive(): bool;
 
 Getter 没有 setter 行为。外部代码能否直接修改属性，仍由属性原本的可见性决定。
 
+`Getter` 可以用于 `readonly` 属性和 readonly class 中的属性，因为生成的方法只读取属性，不会修改它。带有属性 Hook 的属性不能使用 `Getter`；属性 Hook 已经定义了独立的读取语义，编译器会在编译期报错，避免两套读取接口产生冲突。
+
 同一属性可以同时使用 `Getter`、[`Setter`](setter.md) 和 [`With`](with.md)：
 
 ```php

@@ -859,8 +859,8 @@ $upper = $s->upper();  // $s 依然是 "hello"，$upper 是 "HELLO"
 当变量的类型为 `Var`（通用 PHP 类型）时，编译器会按以下优先级查找：
 
 1. **内置关键词方法**（`to*` 系列，由 `KEYWORD_METHOD_MAP` 定义）
-2. **Any 类型扩展方法**（`ExtensionProvider(Type::Any)`）
-3. **关键词扩展方法**（`ExtensionProvider('*')`）
+2. **关键词扩展方法**（`MethodsFor('*')`）
+3. **Any 类型扩展方法**（`MethodsFor(Type::Any)`）
 4. **动态调用**（退化为 ZendVM 方法调用）
 
 ```php
@@ -881,14 +881,14 @@ echo $x->contains("test");
 
 ## 14. 类型扩展方法
 
-TypePHP 使用类级 `ExtensionProvider` 声明类型扩展方法。Provider 的目标由根命名空间 `Type` 的类型符号指定，类中的 `public static` 方法会成为该类型的扩展方法。根命名空间 `Type` 与编译器内部的 `TypePHP\Type` 不同。
+TypePHP 使用类级 `MethodsFor` 声明类型扩展方法。Provider 的目标由根命名空间 `Type` 的类型符号指定，类中的 `public static` 方法会成为该类型的扩展方法。根命名空间 `Type` 与编译器内部的 `TypePHP\Type` 不同。
 
-以下示例位于全局命名空间。如果代码位于其他命名空间，应写 `#[\ExtensionProvider(\Type::Int)]`，或者先执行 `use \ExtensionProvider; use \Type;`，再使用相同的短名称。Attribute、目标类型和 `ClassName::class` 均遵循 PHP 的标准名称解析规则，并支持 `use ... as ...` 别名。
+以下示例位于全局命名空间。如果代码位于其他命名空间，应写 `#[\MethodsFor(\Type::Int)]`，或者先执行 `use \MethodsFor; use \Type;`，再使用相同的短名称。Attribute、目标类型和 `ClassName::class` 均遵循 PHP 的标准名称解析规则，并支持 `use ... as ...` 别名。
 
 ### 14.1 Int 扩展
 
 ```php
-#[ExtensionProvider(Type::Int)]
+#[MethodsFor(Type::Int)]
 final class IntExtensions
 {
     public static function isPrime(int $value): bool
@@ -907,7 +907,7 @@ $number->isPrime();
 第一个参数是 receiver，方法调用提供的参数从第二个参数开始对应：
 
 ```php
-#[ExtensionProvider(Type::Int)]
+#[MethodsFor(Type::Int)]
 final class IntExtensions
 {
     public static function between(int $value, int $min, int $max): bool
@@ -922,7 +922,7 @@ var_dump($number->between(10, 100));
 ### 14.2 String 扩展
 
 ```php
-#[ExtensionProvider(Type::String)]
+#[MethodsFor(Type::String)]
 final class StringExtensions
 {
     public static function surround(
@@ -941,7 +941,7 @@ echo 'hello'->surround('<', '>'); // <hello>
 ### 14.3 Array 扩展
 
 ```php
-#[ExtensionProvider(Type::Array)]
+#[MethodsFor(Type::Array)]
 final class ArrayExtensions
 {
     public static function firstOrNull(array $items): mixed
@@ -956,7 +956,7 @@ $first = $items->firstOrNull();
 ### 14.4 Stream 扩展
 
 ```php
-#[ExtensionProvider(Type::Stream)]
+#[MethodsFor(Type::Stream)]
 final class StreamExtensions
 {
     public static function readChunk(stream $stream, int $length): string
@@ -1009,7 +1009,7 @@ $text = $items
 需要让方法适用于任意 receiver 时，Provider 目标使用 `'*'`，第一个参数声明为 `any`：
 
 ```php
-#[ExtensionProvider('*')]
+#[MethodsFor('*')]
 final class KeywordExtensions
 {
     public static function inspect(
@@ -1041,7 +1041,7 @@ echo $value->typeName();
 默认参数和可变参数遵循普通静态方法规则：
 
 ```php
-#[ExtensionProvider('*')]
+#[MethodsFor('*')]
 final class ComparisonExtensions
 {
     public static function isOneOf(mixed $value, mixed ...$choices): bool
@@ -1053,7 +1053,7 @@ final class ComparisonExtensions
 $status->isOneOf('pending', 'running', 'finished');
 ```
 
-`Type::Any` 只匹配静态类型为 `any` 的 receiver；`'*'` 才是适用于所有类型的关键词通配目标。内置关键词方法（例如 `toInt()`、`toString()` 和 `toObject()`）不能被扩展覆盖。Provider 的完整声明与校验规则见[扩展方法提供者](extension-provider.md)。
+`Type::Any` 只匹配静态类型为 `any` 的 receiver；`'*'` 才是适用于所有类型的关键词通配目标。内置关键词方法（例如 `toInt()`、`toString()` 和 `toObject()`）不能被扩展覆盖。Provider 的完整声明与校验规则见[扩展方法提供者](methods-for.md)。
 
 ## 16. 完整示例
 

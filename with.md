@@ -30,4 +30,6 @@ public function withName(string $name): static
 
 `With` 支持 `private`、`protected`、`public` 实例属性和构造器提升属性，也可以与 `Getter`、`Setter` 同时设置。不支持静态属性，不接受参数。
 
+`With` 需要在 clone 对象上重新写入属性，因此不能用于显式 `readonly` 属性或 readonly class 中隐式 readonly 的属性。带有 `get` 或 `set` 属性 Hook 的属性也不能使用 `With`，避免生成方法与 Hook 的读写语义发生冲突；这些情况都会在编译期报错。
+
 在命名空间中请使用 `#[\With]`，或先通过 `use \With;` 导入。
