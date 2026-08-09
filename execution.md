@@ -83,6 +83,8 @@ PHP 标准库（如 `explode()`、`array_map()`、`preg_match()`）和第三方�
 
 这些代码在**运行时**由 ZendVM 重新执行完整的"解析 → 编译 → 解释"管线，产生 Opcode 字节码并通过 VM 解释循环执行。其执行效率与标准 PHP 中的动态代码完全一致。
 
+TypePHP 定义的 Trait 是一个例外：Trait 只作为编译期 AST 模板存在，不会注册到 ZendVM，因此动态代码不能 `use` TypePHP Trait。详见[兼容性：Trait 仅在编译期可见](compatible.md#trait-仅在编译期可见)。
+
 > **注意**：过度依赖 `include`/`eval` 会稀释 AOT 编译的性能收益。最佳实践是将核心业务逻辑放在静态编译文件中，仅将配置加载、路由分发等必要场景留给动态加载。
 
 ## TypePHP 编译器的执行方式

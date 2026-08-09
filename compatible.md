@@ -9,6 +9,7 @@
 5. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
 6. 不支持闭包和箭头函数的引用参数及按引用返回
 7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
+8. 动态代码不能 `use` TypePHP 源码中定义的 Trait；TypePHP Trait 只在 AOT 编译期参与类组合
 
 ## 已支持的新语法
 
@@ -275,45 +276,57 @@ TypePHP 会在 Attribute 的持久化参数中保存请求期工厂标记，并�
 
 类常量和属性默认值等其他位置具有不同的 `new` 表达式限制，完整规则参见[常量表达式](constant-expressions.md)。
 
-## Trait 中 self 的处理
+## Trait 仅在编译期可见
 
-在 `ZendPHP` 中，`trait` 的 `self::` 在编译时绑定到使用该 `trait` 的类（defining class）。而在 TypePHP 编译器中，`trait` 方法的 `self::` 会被当作 `static::`（延迟静态绑定）来处理，实际运行时会在被调用的类（called class）上解析。
+TypePHP 将 Trait 作为编译期 AST 模板处理。在 `convert` 阶段，Trait 的属性、常量和方法会被注入使用它的类，并像该类直接声明的成员一样编译为原生代码。Trait 本身不会注册为 ZendVM 中的运行期 Trait。
 
-这一差异会导致 `private` 可见性的常量或方法在子类中无法访问。因为 `private` 成员不会被子类继承，当 `static::` 在子类实例上解析时，无法找到父类中 `private` 的常量或方法。
+因此存在以下限制：
 
-**示例：**
+- `trait_exists()` 查询 TypePHP 定义的 Trait 时返回 `false`；
+- 由 `include`、`require` 或 `eval()` 加载的动态 PHP 代码不能 `use` TypePHP 定义的 Trait；
+- 不能通过 Reflection 在运行期取得 TypePHP Trait 实体。
+
+以下写法受支持，因为 Trait 与使用它的类都在 AOT 编译期可见：
 
 ```php
-trait THello {
-    private const array CONST_ARRAY = [
-        'test_fn_1' => ['toInt' => 123],
-    ];
-
-    public function run(string $key1) {
-        var_dump(self::CONST_ARRAY[$key1]);
+trait HasName
+{
+    public function name(): string
+    {
+        return self::class;
     }
 }
 
-class TraitsTest {
-    use THello;
-}
-
-class Test extends TraitsTest {
-    function hello2() {
-        $this->run('test_fn_1');  // self:: 被当作 static:: 处理
-                                  // CONST_ARRAY 是 private，Test 未继承
-                                  // 导致常量读取失败
-    }
+class User
+{
+    use HasName;
 }
 ```
 
-**解决方案：** 将 `trait` 中需要被子类继承访问的常量或方法的可见性从 `private` 修改为 `protected` 或 `public`。
+以下动态代码不受支持：
 
 ```php
-trait THello {
-    protected const array CONST_ARRAY = [ /* ... */ ];
+trait HasName
+{
+    public function name(): string
+    {
+        return self::class;
+    }
+}
+
+function main(): void
+{
+    eval(<<<'PHP'
+        class DynamicUser {
+            use HasName; // 运行期找不到 Trait "HasName"
+        }
+        PHP);
 }
 ```
+
+如果类需要使用 TypePHP Trait，应将该类也纳入 TypePHP 项目，由编译器在 AOT 阶段完成 Trait 组合。必须动态加载的类则应直接声明所需成员，或继承一个已经静态编译并组合了 Trait 的普通 TypePHP 类。
+
+Trait 方法中的 `self`、`parent` 和 `static` 按组合后的类上下文编译；`__TRAIT__` 仍保留原始 Trait 名称，可用于识别方法来源。
 
 ## 析构方法中抛出异常
 
