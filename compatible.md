@@ -9,7 +9,8 @@
 5. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
 6. 不支持闭包和箭头函数的引用参数及按引用返回
 7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
-8. 动态代码不能 `use` TypePHP 源码中定义的 Trait；TypePHP Trait 只在 AOT 编译期参与类组合
+8. 动态代码不能 `use` 在 静态编译的 `Trait`，`Trait` 在编译期与 `Class` 组合，不支持运行时动态绑定
+9. 不支持 `Closure::call()/bind()/bindTo()`，`Closure` 的 `$this` 与类作用域在编译期确定，不允许在运行时重新绑定
 
 ## 已支持的新语法
 
@@ -169,6 +170,50 @@ $fn($a, $b, $c->toRef());
 ```
 
 闭包和箭头函数目前也不能声明引用参数或按引用返回。此限制与 `use (&$value)` 引用捕获不同；引用捕获已经支持。
+
+## 不支持闭包重绑定
+
+TypePHP 支持闭包、箭头函数、`use ($value)` 值捕获和 `use (&$value)` 引用捕获，但不支持以下依赖运行时重绑定的 API：
+
+- `Closure::call()`；
+- `Closure::bind()`；
+- `Closure::bindTo()`。
+
+```php
+class Target
+{
+    private string $value = 'hidden';
+}
+
+$target = new Target();
+$reader = function (): string {
+    return $this->value;
+};
+
+$reader->call($target);          // 不支持
+$reader->bindTo($target);        // 不支持
+Closure::bind($reader, $target); // 不支持
+```
+
+TypePHP 会在能够静态确认接收者为闭包时直接报告编译错误。闭包的捕获变量、词法类作用域和 `$this` 均由 AOT 编译器确定；运行时替换 `$this` 或类作用域会破坏这一静态模型，因此不会模拟 ZendVM 的重绑定行为。
+
+需要访问目标对象时，应将对象作为普通参数显式传入，并通过其公开 API 操作：
+
+```php
+class Target
+{
+    public function value(): string
+    {
+        return 'visible';
+    }
+}
+
+$reader = static function (Target $target): string {
+    return $target->value();
+};
+
+echo $reader(new Target());
+```
 
 ## 保留关键词方法
 
