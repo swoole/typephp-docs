@@ -6,7 +6,7 @@ Python 互调用是可选的扩展级特性。不使用 Python 语法的 TypePHP
 
 ## 环境准备
 
-首先安装 CPython、开发头文件和 phpy。phpy 支持 Linux、macOS 和 Windows，要求 PHP 8.1 或更高版本。以源码构建为例：
+首先安装 CPython、开发头文件和 phpy。phpy 支持 Linux、macOS 和 Windows，当前要求 Python 3.10 或更高版本、PHP 8.1 或更高版本。以源码构建为例：
 
 ```bash
 git clone https://github.com/swoole/phpy.git
@@ -106,7 +106,34 @@ function main(): void
 }
 ```
 
+`use` 本身完全遵循 PHP 的命名空间与别名规则，TypePHP 不为 Python 改写 PHP 的名称解析。在全局 namespace 中可以直接写 `python\math\sqrt()`；位于 `namespace App` 时，`python\math\sqrt()` 会被 PHP 解析为 `App\python\math\sqrt()`，因此必须导入或使用全限定名称：
+
+```php
+namespace App;
+
+use python\math;
+
+$a = math\sqrt(16);          // 导入后的别名
+$b = \python\math\sqrt(25); // 全限定名称，无需 use
+```
+
 `python` 是 TypePHP 的特殊根命名空间，不能用来声明普通 PHP 命名空间。模块别名也不能与当前文件中的其他 `use` 符号冲突。
+
+也可以使用 PHP 原生的函数和常量导入语法，并使用 `as`：
+
+```php
+namespace App;
+
+use function python\len;
+use function python\math\sqrt as pySqrt;
+use const python\math\pi as pyPi;
+
+len([1, 2, 3]);
+$root = pySqrt(16);
+$pi = pyPi;
+```
+
+Python 符号仍区分大小写；PHP 的 alias 解析则继续遵循 PHP 自身规则。
 
 ## 模块函数、类和变量
 
@@ -132,6 +159,16 @@ $path = sys\path;
 ```
 
 不要写成 `math::pi` 或 `math::$pi`，它们属于 PHP class member 语法。Python 模块在 TypePHP 中映射为命名空间，成员读取仍由 Python 在运行时完成。
+
+模块变量的值同样是 `PyObject`。TypePHP 只提供读取，不支持通过 namespace 语法覆盖或删除模块变量：
+
+```php
+$path = sys\path;      // 支持
+sys\path = $newPath;  // 不支持
+unset(sys\path);      // 不支持
+```
+
+确实需要修改 Python 模块状态时，可以显式调用 Python 的 `setattr()` / `delattr()`；这属于应用主动执行的 Python 操作。
 
 模块按完整名称缓存。同一个模块在多个文件中使用不同别名时，底层仍遵循 Python 的 `sys.modules` 导入语义。
 
@@ -384,7 +421,7 @@ use Python\os;
 $module1 = PyCore::import('os');
 $name1 = $module1->name;
 
-$name2 = os::$name;
+$name2 = os\name;
 $list1 = new PyList([1, 2, 3]);
 $list2 = python\list([1, 2, 3]);
 ```
@@ -406,3 +443,8 @@ $list2 = python\list([1, 2, 3]);
 - 动态 PHP 代码的一元正负号存在前述 protocol 差异。
 
 TypePHP 的目标是让应用高效、可靠地调用 Python 包，而不是在 PHP 中完整实现 Python 语法或异步运行时。
+
+开发阶段还可以使用：
+
+- [生成 Python IDE 自动提示](python-ide-helper.md)：为 builtin 和指定模块生成仅供编辑器索引的声明。
+- [Python 代码转 TypePHP](python-convert.md)：把受支持的 Python AST 机械转换为可继续审查和修改的 TypePHP 源码。

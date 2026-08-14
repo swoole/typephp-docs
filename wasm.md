@@ -59,12 +59,14 @@ Component 是最简单的入门方式，不需要 Node.js 或 Jco。
 | [WASI SDK](https://github.com/WebAssembly/wasi-sdk/releases) | 33 或更高 | 是 | 提供 LLVM/Clang/LLD 22 和 `wasm32-wasip2` 工具链 |
 | [Wasmtime](https://docs.wasmtime.dev/cli-install.html) | 47 或更高 | 是 | 运行和测试 WASI 0.2 Component |
 | [Jco](https://bytecodealliance.github.io/jco/) | 1 或更高 | 仅 `browser` profile | 将 Component 转换为浏览器 ESM |
-| [wit-bindgen](https://github.com/bytecodealliance/wit-bindgen) | 固定为 `wit-bindgen-cli 0.60.0` | 仅 `mode: library` | 为 `#[WasmExport]` 生成 Canonical ABI 绑定；由 PHPX SDK 随包提供 |
+| [wit-bindgen](https://github.com/bytecodealliance/wit-bindgen) | 固定为 `wit-bindgen-cli 0.60.0` | 仅 `mode: library` | 为 `#[WasmExport]` 生成 Canonical ABI 绑定 |
 | [WABT](https://github.com/WebAssembly/wabt) | 推荐最新稳定版 | 否 | 调试 Jco 生成的 Core Wasm，不参与 TypePHP 构建 |
 
-普通用户不需要安装 Rust 或 Cargo，也不应自行选择其他版本的 `wit-bindgen`。完整的 TypePHP/PHPX 发行包已经包含与当前编译器匹配的宿主平台二进制文件；`tpc` 会从 PHPX 安装目录中调用它。
+普通 command component 不需要 Rust、Cargo 或 `wit-bindgen`。只有使用 `mode: library` / `#[WasmExport]` 时，才需要安装固定版本的 `wit-bindgen-cli`。PHPX 发行包只提供目标端头文件和静态库，不再携带宿主平台的 `wit-bindgen` 二进制。
 
-WASI SDK 和 Wasmtime 的可执行文件必须位于 `PATH`。TypePHP 不探测 `/opt` 等固定目录，也没有 WASI 专用的工具链环境变量。
+WASI SDK 和 Wasmtime 的可执行文件必须位于 `PATH`。browser profile 还要求 `jco`，library 模式还要求 `wit-bindgen` 位于 `PATH`。TypePHP 不探测 `/opt` 等固定目录，也没有 WASI 专用的工具链环境变量。
+
+当前 TypePHP WASM 构建入口面向 Linux 和 macOS；macOS 需要确保 `PATH` 中有 Bash 4.0+ 和 `realpath`（可通过 Homebrew 安装新版 Bash 与 GNU coreutils）。Windows 用户目前应在 WSL 中构建。WASI SDK、Wasmtime、Jco 或 WABT 本身提供 Windows 版本，并不代表当前 TypePHP Windows 工具包已经支持 WASM 构建。
 
 ### 安装 WASI SDK
 
@@ -83,13 +85,7 @@ export PATH="/opt/wasi-sdk/bin:$PATH"
 export PATH="/opt/wasi-sdk-33.0/bin:$PATH"
 ```
 
-Windows 用户下载对应的 Windows 压缩包，解压到例如 `C:\Tools\wasi-sdk-33.0`，在 PowerShell 中执行：
-
-```powershell
-$env:Path = "C:\Tools\wasi-sdk-33.0\bin;$env:Path"
-```
-
-需要永久生效时，把相同目录加入系统 `PATH`，或将上述设置写入 shell 配置文件。
+需要永久生效时，将相同目录写入 shell 配置文件。Windows/WSL 用户应在 WSL 内安装 Linux 版 WASI SDK，并从 WSL 执行 `tpc`。
 
 ### 安装 Wasmtime
 
@@ -99,7 +95,7 @@ Linux 和 macOS 可使用 [Wasmtime 官方安装脚本](https://docs.wasmtime.de
 curl https://wasmtime.dev/install.sh -sSf | bash
 ```
 
-根据安装程序的提示重新打开终端，或把 `$HOME/.wasmtime/bin` 加入 `PATH`。Windows 用户可以从 [Wasmtime Releases](https://github.com/bytecodealliance/wasmtime/releases) 下载对应安装包。
+根据安装程序的提示重新打开终端，或把 `$HOME/.wasmtime/bin` 加入 `PATH`。
 
 ### 浏览器开发：使用 npm 安装 Jco
 
@@ -109,7 +105,7 @@ curl https://wasmtime.dev/install.sh -sSf | bash
 npm install --global @bytecodealliance/jco
 ```
 
-Linux、macOS 和 Windows 均可使用这条命令。npm 的全局可执行文件目录需要位于 `PATH`；Node.js 的标准安装程序通常会自动完成配置。
+Linux 和 macOS 均可使用这条命令。npm 的全局可执行文件目录需要位于 `PATH`；Node.js 的标准安装程序通常会自动完成配置。
 
 如果希望通过 `package-lock.json` 固定项目使用的 Jco 版本，也可以改为项目本地安装：
 
@@ -139,7 +135,7 @@ jco --version  # 仅 browser profile 需要
 wasm32-unknown-wasip2
 ```
 
-TypePHP 构建时还会检查 `wasm32-wasip2-clang`、`llvm-ar`、`llvm-ranlib` 和 `llvm-nm`。版本或目标不符合要求时会在开始编译前报错。WABT 不是 TypePHP 的构建依赖，也不能替代 WASI SDK。
+TypePHP 构建时还会检查 `wasm32-wasip2-clang`、`llvm-ar`、`llvm-ranlib` 和 `llvm-nm`。browser profile 检查 `jco`，library 模式检查 `wit-bindgen` 及其精确版本。版本或目标不符合要求时会在开始编译前报错。WABT 不是 TypePHP 的构建依赖，也不能替代 WASI SDK。
 
 ### 可选：安装 WABT 调试 Core Wasm
 
@@ -149,13 +145,6 @@ TypePHP 构建时还会检查 `wasm32-wasip2-clang`、`llvm-ar`、`llvm-ranlib` 
 
 ```bash
 export PATH="/opt/wabt-1.0.41/bin:$PATH"
-wasm-objdump --version
-```
-
-Windows PowerShell 示例：
-
-```powershell
-$env:Path = "C:\Tools\wabt-1.0.41\bin;$env:Path"
 wasm-objdump --version
 ```
 
@@ -182,16 +171,10 @@ wasm-stats generated/program.core.wasm
 
 ### TypePHP WASI 运行库
 
-TypePHP 发布包提供与编译器版本绑定的 WASI 静态库和宿主构建工具。它们统一安装在 PHPX 目录中：
+TypePHP 发布包提供与编译器版本绑定的 WASI 静态库和目标端头文件。它们统一安装在 PHPX 目录中：
 
 ```text
 <PHPX_HOME>/wasm/
-├── bin/
-│   ├── linux-x86_64/wit-bindgen
-│   ├── linux-aarch64/wit-bindgen
-│   ├── macos-x86_64/wit-bindgen
-│   ├── macos-arm64/wit-bindgen
-│   └── windows-x86_64/wit-bindgen.exe
 └── wasm32-wasip2/
     ├── include/
     ├── lib/
@@ -225,13 +208,13 @@ export PHPX_HOME=/opt/phpx
 
 `wit-bindgen` 与 Jco 的职责不同：前者在 `mode: library` 下生成 Wasm Component 的 C/C++ Guest 绑定，后者把已经链接完成的 Component 转换为浏览器 ESM。因此安装 Jco 不能替代 `wit-bindgen`。
 
-不过，普通用户仍然不需要单独安装 `wit-bindgen`：
+command component 用户不需要安装 `wit-bindgen`：
 
 - `mode: bin` 不会调用它。
-- `mode: library` 会使用 PHPX 包内与编译器绑定的 `wit-bindgen-cli 0.60.0`。
-- `tpc` 不从 `PATH` 搜索 `wit-bindgen`，以免误用不兼容版本。
+- `mode: library` 必须使用 `PATH` 中的 `wit-bindgen-cli 0.60.0`。
+- `tpc` 在编译前校验版本，其他版本会被拒绝，以免生成与当前 adapter 不兼容的 C ABI。
 
-只有制作自定义 PHPX WASI SDK 的开发者才需要从源码准备它。此时先安装 [Rustup](https://rustup.rs/)，再执行：
+使用 library 模式时，先安装 [Rustup](https://rustup.rs/)，再执行：
 
 ```bash
 cargo install wit-bindgen-cli --version 0.60.0 --locked
@@ -244,7 +227,7 @@ wit-bindgen --version
 wit-bindgen-cli 0.60.0
 ```
 
-随后将该宿主可执行文件放入上方 `wasm/bin/<host-os>-<host-arch>/` 对应目录。不能把 Linux 二进制复制给 macOS 或 Windows，也不能用目标为 Wasm 的程序代替宿主工具。这个 Cargo 流程仅用于 TypePHP/PHPX SDK 的制作与发布，不是应用开发环境的安装步骤。
+Cargo 会把宿主可执行文件安装到用户的 Cargo bin 目录，通常是 `$HOME/.cargo/bin`。确认该目录位于 `PATH`；不能用目标为 Wasm 的程序代替宿主工具。
 
 ## 命令行模式
 
@@ -660,11 +643,17 @@ test -f "$PHPX_HOME/wasm/wasm32-wasip2/lib/libphpx.a"
 
 不要从另一版本的 TypePHP/PHPX 单独复制 `.a` 文件覆盖。
 
-### PHPX bundled WIT binding generator is missing
+### Required WASI tool `wit-bindgen` was not found in PATH
 
-此错误只会在 `mode: library` 构建中出现。请重新安装与当前 TypePHP 版本匹配、且包含 WASI SDK 的完整 PHPX 包。`tpc` 使用 PHPX 包内固定版本的生成器，不会从 `PATH` 查找另行安装的 `wit-bindgen`。
+此错误只会在 `mode: library` 构建中出现。安装并验证固定版本：
 
-只有自行制作 PHPX SDK 时，才应按照本页“wit-bindgen 的安装方式”安装固定版本并放入对应的宿主平台目录。
+```bash
+cargo install wit-bindgen-cli --version 0.60.0 --locked
+export PATH="$HOME/.cargo/bin:$PATH"
+wit-bindgen --version
+```
+
+如果报告 incompatible version，请卸载其他来源的同名程序，或调整 `PATH`，确保首先找到 `wit-bindgen-cli 0.60.0`。
 
 ### 浏览器提示不支持 JSPI
 

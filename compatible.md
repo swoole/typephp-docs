@@ -11,6 +11,7 @@
 7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
 8. 动态代码不能 `use` 在 静态编译的 `Trait`，`Trait` 在编译期与 `Class` 组合，不支持运行时动态绑定
 9. 不支持 `Closure::call()/bind()/bindTo()`，`Closure` 的 `$this` 与类作用域在编译期确定，不允许在运行时重新绑定
+10. 不支持 `Lazy Object API`，如 `ReflectionClass::newLazyGhost()/newLazyProxy()`， `PHP` 禁止把内置类转为 `Lazy Object`
 
 ## 已支持的新语法
 

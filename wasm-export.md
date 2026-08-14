@@ -55,6 +55,15 @@ wasm-browser-dir: generated
 
 至少需要声明一个 `#[WasmExport]` 函数。完整 WASI SDK 和浏览器环境配置参见[编译到 WebAssembly](wasm.md)。
 
+library 模式还要求 `wit-bindgen-cli 0.60.0` 位于 `PATH`：
+
+```bash
+cargo install wit-bindgen-cli --version 0.60.0 --locked
+wit-bindgen --version
+```
+
+它只在构建期间生成当前应用的 Canonical ABI 绑定，不会链接进 PHPX 或最终 `.wasm`。使用 `mode: bin` 的普通 command component 不需要安装它。
+
 ## 支持的参数和返回类型
 
 当前 ABI 支持：
