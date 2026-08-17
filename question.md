@@ -4,10 +4,12 @@
 
 ## TypePHP 编译器是开源免费的吗
 
-不是。TypePHP 编译器是商业软件，不提供源代码。对于非商业应用，可免费使用，无需付费。无论是个人开发者，还是企业、政府、事业单位、学校、公益组织等在非盈利目的的项目中均可免费使用 TypePHP 编译器。
+是的。TypePHP 编译器是开源软件，遵循 **GPL** 开源协议发布，完全免费，可自由使用、修改和再分发，包括商业用途。无论是个人开发者，还是企业、政府、事业单位、学校、公益组织，均可免费使用 TypePHP 编译器，无需购买任何授权。
 
-## 已购买旧版 `Swoole Compiler` 客户是否需要再次购买 TypePHP 编译器
+## `Swoole Compiler` 与 `TypePHP` 的差异
 
-不需要。TypePHP 编译器是旧版 `Swoole Compiler` 的 `4.0` 升级版。已购买 `Swoole Compiler` 的客户将自动获得 TypePHP 编译器软件的商业授权，可合法用于商业项目。
+Swoole Compiler 是商业软件，用户需购买后使用。`Swoole Compiler` 专注于保护 `PHP` 项目源代码。更适合传统的`PHP-FPM`或
+`Swoole`/`Swow`/`Workerman`等`PHP-CLI`模式的`PHP`程序，用户无需修改已有`PHP`代码。
 
-若使用 TypePHP 编译器过程中需要我方团队提供技术支持，仅需支付延长技术支持服务的相关费用。
+TypePHP 是开源项目。所有用户均可免费使用，是全新的`PHP`编译技术，与传统`PHP`的解释执行不同， TypePHP 是将`PHP`源代码直接编译为二进制可执行程序。
+已有`PHP`代码无法直接运行于 TypePHP 之下，需要根据编译器的信息修改源代码后使用。
