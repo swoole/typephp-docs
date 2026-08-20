@@ -4,6 +4,96 @@ TypePHP 编译器在标准 `PHP` 类型之外扩展了高精度数值类型和�
 
 对象类型还可以通过同命名空间中的普通函数补充仅在静态编译阶段生效的实例方法，详见[扩展对象方法](object-extension-method.md)。
 
+对对象布局和调用性能有极致要求、且不需要进入 ZendVM 的内部数据结构，可以显式声明为 [`#[Native]` 原生类](native-class.md)。原生类采用固定 C++ 字段布局和独立 tracing GC，具有比普通 PHP 对象更严格的静态类型与互操作边界。
+
+## ZendPHP 的类型系统边界
+
+ZendPHP 本质上仍是动态、弱类型语言。PHP 提供的参数和返回值类型声明（通常也称为 type hints）主要约束函数调用边界，而不是为函数中的变量建立不可改变的静态类型。
+
+参数类型在进入函数时检查，但普通参数进入函数体后只是一个 `zval`，可以被重新赋值为任意其他类型：
+
+```php
+declare(strict_types=1);
+
+function change(int $value): void
+{
+    $value = 'text';
+    $value = ['php', 'typephp'];
+}
+
+change(1); // 合法
+```
+
+即使参数使用引用传递，参数声明本身也只负责入口检查：
+
+```php
+function changeRef(int &$value): void
+{
+    $value = 'text';
+}
+
+$value = 1;
+changeRef($value);
+var_dump($value); // string(4) "text"
+```
+
+返回类型同样是在函数退出、返回值离开函数时检查。它不会限制函数体内临时变量的类型变化。局部变量也没有独立的类型声明，其类型可以随每次赋值改变。
+
+`declare(strict_types=1)` 只关闭函数调用边界上的部分标量隐式转换，使不匹配的参数或返回值抛出 `TypeError`；它不会让局部变量或参数在函数体内变成固定类型，因此也不会把 ZendPHP 转换成静态强类型语言。
+
+在 PHP 的可变存储中，真正持续携带类型约束的是声明了类型的对象属性，包括静态属性。属性值可以修改，但属性声明的类型不能在运行期间改变；每次写入都会由 ZendVM 检查：
+
+```php
+class User
+{
+    public int $id = 0;
+}
+
+$user = new User();
+$user->id = 42;     // 合法
+$user->id = 'text'; // TypeError
+```
+
+这个约束附着在属性槽上。即使把属性作为引用传给函数，也不能通过引用绕过：
+
+```php
+$user = new User();
+changeRef($user->id); // TypeError：不能向 int 属性写入 string
+```
+
+无显式默认值时，ZendPHP 的 typed property 不是类型零值，也不是 `null`，而是尚未初始化的 `IS_UNDEF` 状态。TypePHP 为了生成固定类型的 C++ 属性槽，对常见固定值类型采用确定的零值初始化，因此这里存在明确的兼容性差异：
+
+| 属性声明 | ZendPHP 无显式默认值 | TypePHP 无显式默认值 |
+|---|---|---|
+| `public int $value;` | 未初始化；读取抛出 `Error` | `0` |
+| `public float $value;` | 未初始化；读取抛出 `Error` | `0.0` |
+| `public bool $value;` | 未初始化；读取抛出 `Error` | `false` |
+| `public string $value;` | 未初始化；读取抛出 `Error` | 空字符串 `''` |
+| `public array $value;` | 未初始化；读取抛出 `Error` | 空数组 `[]` |
+| `public ?int $value;` | 未初始化；不会自动成为 `null` | 可空动态存储；需要显式默认值时应写 `= null` |
+| `public mixed $value;` | 未初始化 | 动态值，默认 `null` |
+| `public $value;` | `null` | `null` |
+
+如果源码显式声明默认值，例如 `public int $value = 10` 或 `public ?int $value = null`，则使用声明值，不使用表中的隐式初始状态。
+
+这项差异会影响直接读取、`isset()`、`??` 和 Reflection 初始化状态。例如 ZendPHP 中未初始化的 `public int $value` 会让 `isset($object->value)` 返回 `false`，`$object->value ?? 10` 返回 `10`；TypePHP 的固定槽已经包含 `0`，不能依赖 ZendPHP 的 uninitialized 行为。需要表达“尚未设置”时，应显式使用可空类型及 `= null`，而不要依赖无默认值的 typed property。更多限制参见[兼容性说明](compatible.md#固定值类型属性)。
+
+PHP 8.4 也支持 typed class constant，但类常量本身不可写，不属于可变变量的存储模型。
+
+普通 PHP 数组同样没有键和值的元素类型。一个数组可以同时保存不同类型的键和值，也可以在运行时任意改变结构：
+
+```php
+$values = [];
+$values[] = 1;
+$values[] = 'text';
+$values['user'] = new User();
+$values[10] = ['nested' => true];
+```
+
+`array` 参数或属性类型只表示这个值本身必须是 PHP 数组，不会约束数组内部元素。PHPDoc 中的 `list<int>`、`array<string, User>` 等写法仅供 IDE 和静态分析工具使用，ZendVM 不会执行这些约束。
+
+因此，ZendPHP 并没有覆盖变量、参数、局部值和容器元素的完整强类型系统。TypePHP 在兼容 PHP 语法的基础上增加编译期类型推断、固定原生类型、[`#[ArrayDef]`](array-def.md)、[Std 强类型容器](std-containers.md)、[`#[Immutable]`](immutable.md) 和 [`#[Native]`](native-class.md) 等约束；这些能力才会在编译阶段限制类型变化，或生成具有固定 C++ 存储类型的代码。
+
 ## 1. 类型总览
 
 TypePHP 编译器支持以下 C++ 存储类型（`php::*`）：
@@ -110,6 +200,8 @@ Big* 类型是**不可变的**（immutable）——每次运算返回新值，�
 ## 4. Std 强类型容器
 
 TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `Type::Int` 和 `Type::String`。
+
+如果数据必须保持普通 PHP `array`，但希望编译器检查属性上的直接元素写入，可以使用 [`#[ArrayDef]`](array-def.md)。它不会把 PHP 数组转换成 Std Container；两者的存储模型和动态边界不同。
 
 ```php
 declare(strict_types=1);

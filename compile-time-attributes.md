@@ -12,7 +12,7 @@ Attribute 参数支持字面量、常量、非空数组、嵌套数组和 `new` 
 
 `NotNull`、`NotEmpty` 和 `Validate` 同样在编译期展开，不存在运行时 Attribute 解析开销；但它们生成的参数检查和异常分支属于明确要求的业务检查，会在每次调用时执行。
 
-`Override` 和 `MustUse` 只执行编译期静态验证，不生成运行时代码。`Hot` 和 `Cold` 在编译期转换为 C++ 编译器的优化提示，也不会执行运行时 Attribute 检查。`Constructor` 在编译期生成普通构造方法，与手写等价方法没有额外运行时开销。
+`Override`、`MustUse` 和 `Immutable` 只执行编译期静态验证，不生成运行时代码。`ArrayDef` 对静态类型明确的追加和 Map 写入不增加类型检查；`any` 键或值会插入严格类型检查，List 的显式下标修改还会执行边界检查。`Native` 在编译期选择独立的原生对象模型。`Hot` 和 `Cold` 在编译期转换为 C++ 编译器的优化提示，也不会执行运行时 Attribute 检查。`Constructor` 在编译期生成普通构造方法，与手写等价方法没有额外运行时开销。
 
 ## 注解列表
 
@@ -30,9 +30,12 @@ Attribute 参数支持字面量、常量、非空数组、嵌套数组和 `new` 
 | [`#[Validate(...)]`](validate.md) | 函数或方法参数 | 使用 `filter_var()` 验证参数，不修改参数值 |
 | [`#[Override]`](override.md) | 方法 | 强制要求方法覆盖父类方法或实现接口方法 |
 | [`#[MustUse]`](must-use.md) | 函数、方法 | 禁止丢弃调用返回值 |
+| [`#[Immutable]`](immutable.md) | 方法、Property Hook、参数 | 对方法中的 `$this` 或参数执行编译期不可变检查 |
+| [`#[Native]`](native-class.md) | 具名类 | 将类编译为不注册到 ZendVM 的原生 C++ 对象 |
 | [`#[Hot]`](hot.md) | 函数、方法 | 提示编译器优先优化高频执行路径 |
 | [`#[Cold]`](cold.md) | 函数、方法 | 提示编译器按低频路径优化函数 |
 | [`#[Constructor]`](constructor.md) | 实例属性 | 根据属性生成 public 构造方法 |
+| [`#[ArrayDef(...)]`](array-def.md) | `array` 属性 | 声明 List 元素类型或 Map 键、值类型，并检查直接元素写入 |
 | [`#[WasmExport]`](wasm-export.md) | 函数 | 将静态类型函数导出为 WASI 0.2 Component 的 WIT 接口 |
 
 ## 命名空间规则
