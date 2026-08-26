@@ -97,6 +97,12 @@ link-paths:
   - /usr/local/lib
   - /opt/custom/lib
 
+# 运行时 PHP 扩展依赖（写入 Zend 模块依赖表）
+# 可简写为 ext-deps，但两个名称不能同时出现
+extension-dependencies:
+  - pdo_mysql
+  - curl
+
 # Windows 资源配置（仅 Windows 平台）
 resource:
   icon: assets/app.ico
@@ -137,7 +143,73 @@ resource:
 | `format` | `boolean` | 启用 clang-format 格式化，等价于 `--format` |
 | `link-libs` | `array` | 要链接的库，等价于 `-l`。每项为库名（不含 `lib` 前缀和 `.so`/`.a` 后缀） |
 | `link-paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
+| `extension-dependencies` / `ext-deps` | `array` | 必需的 PHP 扩展模块名。`ext-deps` 是简写别名；两者不能同时出现。编译器将其写入 `zend_module_entry.deps`，由 Zend 在加载 TypePHP 模块时检查 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
+
+## PHP 扩展依赖
+
+程序依赖 `pdo_mysql`、`curl` 等 PHP 扩展时，可以通过 `extension-dependencies` 声明：
+
+```yaml
+name: database_app
+mode: ext
+sources:
+  - src
+
+extension-dependencies:
+  - pdo_mysql
+  - curl
+```
+
+也可以使用完全等价的简写名称：
+
+```yaml
+ext-deps:
+  - pdo_mysql
+  - curl
+```
+
+同一个项目只能选择其中一个名称。以下配置不合法，编译器会在读取 YAML 时直接报错：
+
+```yaml
+extension-dependencies:
+  - pdo_mysql
+ext-deps:
+  - curl
+```
+
+编译器会在生成的 Zend 模块中建立必需依赖表，等价于为每一项生成 `ZEND_MOD_REQUIRED`。加载 TypePHP 扩展时，Zend 会先确认这些模块已经加载；缺少必需模块时，TypePHP 模块不会正常启动。重复名称会被去重，名称前后的空白会被移除。
+
+`extension-dependencies` 和 `ext-deps` 都必须是数组，每一项必须是非空字符串。当前配置中的依赖均为必需依赖，不支持 optional、conflicts 或版本关系声明。
+
+该配置适用于 Host 平台的 `bin`、`lib` 和 `ext` 构建：三种模式都会生成 TypePHP 的 Zend 模块入口，其中 `ext` 由 PHP 直接加载，`bin`/`lib` 由嵌入式运行时注册。WASM Runtime 的扩展集合在构建运行时组件时已经固定，不能通过该配置动态加入缺失的 PHP 扩展。
+
+这里填写的是 **PHP 模块名**，通常与 `extension_loaded()` 使用的名称一致，例如：
+
+```php
+extension_loaded('pdo_mysql');
+extension_loaded('curl');
+```
+
+不要填写操作系统软件包名、动态库文件名或链接参数，例如 `php8.4-curl`、`libcurl.so`、`-lcurl` 都不是 PHP 模块名。
+
+`extension-dependencies` 只声明加载顺序和运行时必需关系，不会安装、启用或静态链接扩展。部署时仍需通过 `php.ini` 或 SAPI 配置提前加载相应扩展：
+
+```ini
+extension=pdo_mysql
+extension=curl
+extension=database_app
+```
+
+`extension-dependencies` 与原生 C/C++ 链接配置是两套独立机制：
+
+| 配置 | 作用对象 | 发生阶段 | 示例 |
+|------|----------|----------|------|
+| `extension-dependencies` | PHP/Zend 扩展模块 | Zend 模块加载与启动 | `pdo_mysql`、`curl` |
+| `link-libs` | 原生链接库 | C/C++ 链接 | `curl`、`ssl` |
+| `link-paths` | 原生库搜索目录 | C/C++ 链接 | `/usr/local/lib` |
+
+如果项目既直接调用 PHP 的 `curl` 扩展，又在自定义 C++ 源码中链接 libcurl，可能需要同时配置 `extension-dependencies: [curl]` 和 `link-libs: [curl]`；两者不会互相替代。
 
 ## WASM 项目
 

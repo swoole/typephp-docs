@@ -109,6 +109,8 @@ build-dir: build
 ./tpc extension.yml -m ext -o my_extension
 ```
 
+扩展依赖 `pdo_mysql`、`curl` 等其他 PHP 模块时，可在 YAML 中使用 `extension-dependencies`（简写为 `ext-deps`）将必需依赖写入 Zend 模块元数据。两个配置名不能同时出现。该配置不会自动加载扩展，也不同于原生库的 `link-libs`；完整配置和部署顺序见 [project.yml：PHP 扩展依赖](project-yml.md#php-扩展依赖)。
+
 Linux `bin` 模式需要 `libphp.so` 或 `libphp.a`。二进制 `tpc` 自身也依赖 `libphp.so` 和 `libphpx.so`，所以它不能在缺库时自行启动安装器。Composer 用户应通过 `vendor/bin/tpc.php` 自动准备这些库，详见[Composer 安装](composer.md)。`ext` 模式不触发 Embed PHP 安装器。
 
 ## 检查生成代码
