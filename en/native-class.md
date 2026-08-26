@@ -291,7 +291,7 @@ After implementing `Countable`, the single-argument `count($object)` maps to the
 
 Native Objects do not use Zend reference counting or `std::shared_ptr`. TypePHP/PHPX uses an independent tracing GC to track Native Object fields, local variables, TypePHP global/static slots, and supported local Std containers, so objects can have circular references.
 
-For the complete object layout, root frame, collection threshold, object resurrection, Fiber, and request shutdown flow, see [GC Mechanism: Tracing GC for Native Class Objects](gc.md#6-原生类对象的-tracing-gc).
+For the complete object layout, root frame, collection threshold, object resurrection, Fiber, and request shutdown flow, see [GC Mechanism: Tracing GC for Native Class Objects](gc.md#6-tracing-gc-for-native-class-objects).
 
 The GC runs automatically and does not provide a collection interface that business code must call. `__destruct()` runs when an object becomes unreachable or at request shutdown, at most once per object; the inheritance chain runs from the most-derived class to the base class. Unlike PHP reference-counted objects, when the last variable leaves scope, immediate destruction is not guaranteed, and the destruction order among multiple unreachable objects is not guaranteed.
 

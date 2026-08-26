@@ -76,7 +76,7 @@ Without an explicit default value, ZendPHP's typed property is not the type's ze
 
 If the source code explicitly declares a default value, such as `public int $value = 10` or `public ?int $value = null`, the declared value is used instead of the implicit initial state in the table.
 
-This difference affects direct reads, `isset()`, `??`, and Reflection initialization state. For example, in ZendPHP an uninitialized `public int $value` makes `isset($object->value)` return `false` and `$object->value ?? 10` return `10`; TypePHP's fixed slot already contains `0`, so you cannot rely on ZendPHP's uninitialized behavior. To express the "not yet set" state, explicitly use a nullable type with `= null`, rather than relying on a typed property without a default value. For more limitations, see [Compatibility Notes](compatible.md#固定值类型属性).
+This difference affects direct reads, `isset()`, `??`, and Reflection initialization state. For example, in ZendPHP an uninitialized `public int $value` makes `isset($object->value)` return `false` and `$object->value ?? 10` return `10`; TypePHP's fixed slot already contains `0`, so you cannot rely on ZendPHP's uninitialized behavior. To express the "not yet set" state, explicitly use a nullable type with `= null`, rather than relying on a typed property without a default value. For more limitations, see [Compatibility Notes](compatible.md#fixed-value-type-properties).
 
 PHP 8.4 also supports typed class constants, but class constants themselves are not writable and do not belong to the mutable variable storage model.
 

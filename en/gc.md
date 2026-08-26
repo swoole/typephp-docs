@@ -478,7 +478,7 @@ void traceNode(void *pointer, NativeMarker &marker)
 
 string, array, ordinary PHP object, mixed, and Stream fields are still managed by Zend reference counting; the Native GC only properly destructs these PHPX fields when destroying the outer object. It does not deeply scan `php::Array` or `php::Object` to find Native Objects.
 
-This is also an important reason why Native Objects cannot enter ordinary PHP arrays, ordinary object properties, mixed, Box, or ZendVM dynamic code: the Native object graph must remain closed so the compiler can generate complete and precise trace functions. For specific interoperability limitations, see [Native Classes: ZendVM Boundary](native-class.md#zendvm-边界与不支持功能).
+This is also an important reason why Native Objects cannot enter ordinary PHP arrays, ordinary object properties, mixed, Box, or ZendVM dynamic code: the Native object graph must remain closed so the compiler can generate complete and precise trace functions. For specific interoperability limitations, see [Native Classes: ZendVM Boundary](native-class.md#zendvm-boundary-and-unsupported-features).
 
 ### 6.3 GC Roots
 

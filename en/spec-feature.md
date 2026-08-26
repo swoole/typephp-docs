@@ -42,7 +42,7 @@ function main(): void {
 }
 ```
 
-After using `use bigint_types`, all `Scalar_Int` literals are converted into `php::newBigInt(N)` calls at compile time. Without this directive, only very long integer literals of 19 digits or more are automatically recognized as BigInt (see [math.md §11](math.md#11-超长字面量自动识别)).
+After using `use bigint_types`, all `Scalar_Int` literals are converted into `php::newBigInt(N)` calls at compile time. Without this directive, only very long integer literals of 19 digits or more are automatically recognized as BigInt (see [math.md §11](math.md#11-automatic-recognition-of-very-long-literals)).
 
 ### Difference from `use native_types`
 
