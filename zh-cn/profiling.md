@@ -63,7 +63,7 @@ sudo yum install gperftools gperftools-devel
 
 web 模式提供交互式火焰图（Flame Graph），支持缩放、搜索、聚焦，是推荐的查看方式。
 
-![性能分析图表](./images/prof.png)
+![性能分析图表](../images/prof.png)
 
 也支持手动调用 pprof：
 
