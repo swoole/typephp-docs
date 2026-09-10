@@ -2,8 +2,7 @@
 
 Object type conversion is used to recover or declare an object's class information at compile time, so the compiler can generate more efficient and safer C++ code. It mainly involves three types of scenarios:
 
-- `objval($value, ClassName::class)`
-- `$value->toObject(ClassName::class)`
+- `std::object($value, ClassName::class)` or `$value->toObject(ClassName::class)`
 - Fallback checks for typed object variable assignment, function return values, and property writes
 
 These scenarios are all related to "whether an object belongs to a certain class", but not all of them happen only at compile time.
@@ -52,17 +51,18 @@ $child = new Base(); // Base is not a Child, compile-time error
 
 Assignment between unrelated classes also reports a compile-time error.
 
-### 2.4 Type Continuation via `objval()` and `toObject(Class::class)`
+### 2.4 Type Continuation via `std::object()` or `toObject()`
 
-`objval()` and `toObject()` with a class name argument tell the compiler at compile time to "treat this expression as the specified class from here on":
+Both forms tell the compiler at compile time to "treat this expression as the specified class from here on":
 
 ```php
-$user = objval($data['user'], User::class);
+$user = std::object($data['user'], User::class);
 $user->getName(); // the compiler resolves it as type User
-
-$user = $data['user']->toObject(User::class);
-$user->getName(); // same as above
 ```
+
+`std::object($value, User::class)` and `$value->toObject(User::class)` have the
+same TypePHP semantics. Prefer `std::object()` when the source must also run on
+Zend PHP, where an application can provide an ordinary compatibility method.
 
 The class name argument here must be resolvable at compile time, such as a string literal, `ClassName::class`, `self::class`, or `parent::class`.
 
@@ -70,12 +70,12 @@ The class name argument here must be resolvable at compile time, such as a strin
 
 The following cases must be checked at runtime, because the real object type cannot be fully determined at compile time.
 
-### 3.1 Object Check for `objval()` and `toObject(Class::class)`
+### 3.1 Object Check for `std::object()` and `toObject()`
 
-Although `objval()` / `toObject(Class::class)` continue type information at compile time, they still generate runtime checks:
+Although both forms continue type information at compile time, they still generate a runtime check:
 
 ```php
-$user = objval($value, User::class);
+$user = std::object($value, User::class);
 ```
 
 The generated core logic is equivalent to:
@@ -97,7 +97,7 @@ When the right-hand value is `mixed` / `any`, or its declared type is not precis
 
 ```php
 $child = new Child();
-$child = any($value);
+$child = std::any($value);
 ```
 
 The compiler cannot know the real class of `$value` at the static stage, so it checks `$value instanceof Child` at runtime.
@@ -134,7 +134,6 @@ Object type conversion does not use the "exact class equality" rule and does not
 class Base {}
 class Child extends Base {}
 
-$base = objval(new Child(), Base::class);      // valid
 $base = (new Child())->toObject(Base::class);  // valid
 ```
 
@@ -142,7 +141,8 @@ If exact class comparison is truly needed, explicitly use `get_class()` or `$val
 
 ## 5. Selection Recommendations
 
-- When the static type is already accurate, there is no need to use `objval()` or `toObject(Class::class)`.
-- After retrieving an object from an array, a dynamic return value, or a `mixed` / `any` value, use `objval()` or `toObject(Class::class)` when you need to recover class information.
-- When you want to keep the dynamic type, use `toAny()` or `any()` instead of recovering to a typed object.
-- When a forced reference is needed, use `toRef()` or `refval()`; this is unrelated to object type conversion.
+- When the static type is already accurate, there is no need to use `toObject(Class::class)`.
+- After retrieving an object from an array, a dynamic return value, or a `mixed` / `any` value, use `std::object($value, ClassName::class)` or `toObject(ClassName::class)` when you need to recover class information.
+- Prefer `std::object()` for code shared with Zend PHP; use the keyword method when TypePHP-only fluent syntax is desirable.
+- When you want to keep the dynamic type, use `toAny()` or `std::any()` instead of recovering to a typed object.
+- When a forced reference is needed, use `toRef()` or `std::ref()`; this is unrelated to object type conversion.

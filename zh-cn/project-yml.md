@@ -35,7 +35,6 @@ sources:
 ignore:
   - src/tests/
   - src/vendor/
-  - ext-gd          # 忽略特定扩展依赖
 
 # 构建目录（相对路径基于当前 YAML 文件所在目录解析）
 build-dir: build/out
@@ -124,7 +123,7 @@ resource:
 | `no-console` | `boolean` | 隐藏控制台窗口，等价于 `--no-console`。仅 Windows 生效 |
 | `sanitize` | `string` | 启用 Sanitizer，等价于 `--sanitize`，例如 `address`、`undefined` |
 | `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm`。可使用 `if` + `path` 按 PHP 版本或操作系统条件加载 |
-| `ignore` | `array` | 忽略的路径或扩展名。路径支持文件/目录；`ext-<name>` 格式用于忽略特定扩展依赖 |
+| `ignore` | `array` | 忽略的文件或目录。每项必须是明确路径，**不支持通配符和正则表达式**；目录项会递归排除其下所有文件；不存在的路径会被静默跳过 |
 | `build-dir` | `string` | 构建目录，等价于 `--build-dir`。支持相对路径和绝对路径；相对路径基于当前 YAML 文件所在目录解析 |
 | `dry` | `boolean` | 干运行模式，等价于 `--dry` |
 | `cxx-std` | `string` | C++ 标准版本，等价于 `--cxx-std` |

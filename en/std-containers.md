@@ -8,7 +8,7 @@ The TypePHP compiler wraps C++ standard library containers as Box resources, hel
 |------|---------|-----------|------|
 | Fixed-length array | `php::StdArray<T, N>` | `std::array(type, size)` | Compile-time fixed size, allocated on the heap via Box |
 | Dynamic array | `php::StdVector<T>` | `std::vector(type, [size])` | `std::vector` wrapper, allocated on the heap |
-| Ordered map | `php::StdOrderedMap<K, T>` | `std::ordered_map(ktype, vtype)` | `std::map`, string keys use `zend_binary_strcmp` |
+| Ordered map | `php::StdOrderedMap<K, T>` | `std::orderedMap(ktype, vtype)` | `std::map`, string keys use `zend_binary_strcmp` |
 | Hash map | `php::StdMap<K, T>` | `std::map(ktype, vtype)` | `std::unordered_map`, string keys use `zend_string_hash_val` |
 
 ### Internal Implementation
@@ -50,7 +50,6 @@ Key types support only `Type::Int` and `Type::String`.
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // BigInt vector — int literals are automatically converted to BigInt when writing
 $bigVec = std::vector(Type::BigInt);
@@ -59,7 +58,7 @@ $bigVec[] = 12345678901234567890;
 var_dump($bigVec[0]->toString());  // "99"
 
 // BigFloat map — int key, BigFloat value
-$bigMap = std::ordered_map(Type::Int, Type::BigFloat);
+$bigMap = std::orderedMap(Type::Int, Type::BigFloat);
 $bigMap[0] = 3.14;
 $bigMap[1] = 2.71;
 var_dump($bigMap[0]->toString());  // "3.1400000000000001"
@@ -95,7 +94,6 @@ Based on `std::vector<T>`, supports dynamic appending and random access.
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // create an empty int vector
@@ -172,7 +170,6 @@ Based on `std::array<T, N>`, size determined at compile time, allocated on the h
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // create a fixed-length int array of size 5
@@ -262,11 +259,10 @@ Based on `std::map<K, T>`, keys stored in sorted order. String keys are compared
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // create a string → int map
-    $m = std::ordered_map(Type::String, Type::Int);
+    $m = std::orderedMap(Type::String, Type::Int);
 
     // writes
     $m["alpha"] = 100;
@@ -328,7 +324,6 @@ Based on `std::unordered_map<K, T>`, string keys use `zend_string_hash_val` hash
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // create an int → User hash map
@@ -396,7 +391,6 @@ sequenceDiagram
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // callee: receives the container and modifies it
 function vector_update($source): void
@@ -475,6 +469,6 @@ function main(): void {
 2. **Cannot be reassigned**: once a variable is declared as a certain std container type, it cannot be reassigned to a container of a different type
 3. **Nested access not supported (non-Array types)**: `$vec[a][b]` is only supported by StdArray; StdVector/StdOrderedMap/StdMap do not support it
 4. **Cannot delete in foreach**: when StdOrderedMap/StdMap are in a foreach loop, their elements cannot be `unset`
-5. **Key type limitation**: map/ordered_map keys support only `type_int` and `type_string`
+5. **Key type limitation**: `std::map()` / `std::orderedMap()` keys support only `type_int` and `type_string`
 6. **unset semantic difference**: for StdVector/StdArray, `unset` on an element resets it to the zero value (`T{}`) without changing the container size; for StdOrderedMap/StdMap, `unset` on an element is a real delete (`erase`), which shrinks the container size, and reading that key afterwards throws an exception
 7. **Cannot be passed as a reference parameter**: std container variables cannot be passed via the `&$var` reference form

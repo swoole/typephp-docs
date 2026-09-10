@@ -2,8 +2,7 @@
 
 对象类型转换用于在编译期恢复或声明对象的类信息，使编译器可以生成更高效、更安全的 C++ 代码。它主要涉及三类场景：
 
-- `objval($value, ClassName::class)`
-- `$value->toObject(ClassName::class)`
+- `std::object($value, ClassName::class)` 或 `$value->toObject(ClassName::class)`
 - typed object 变量赋值、函数返回值、属性写入等类型兜底检查
 
 这些场景都与“对象是否属于某个类”有关，但并不都只发生在编译期。
@@ -52,17 +51,18 @@ $child = new Base(); // Base 不是 Child，编译期错误
 
 无关类之间的赋值也会在编译期报错。
 
-### 2.4 `objval()` 和 `toObject(Class::class)` 的类型接续
+### 2.4 使用 `std::object()` 或 `toObject()` 接续类型
 
-`objval()` 和带类名参数的 `toObject()` 会在编译期告诉编译器“这个表达式后续按指定类处理”：
+两种形式都会在编译期告诉编译器“这个表达式后续按指定类处理”：
 
 ```php
-$user = objval($data['user'], User::class);
+$user = std::object($data['user'], User::class);
 $user->getName(); // 编译器按 User 类型解析
-
-$user = $data['user']->toObject(User::class);
-$user->getName(); // 同上
 ```
+
+`std::object($value, User::class)` 与 `$value->toObject(User::class)` 在 TypePHP
+中的语义完全相同。源码还需要在 Zend PHP 上执行时，建议使用 `std::object()`，
+应用可以在 Zend PHP 环境提供普通的兼容方法。
 
 这里的类名参数必须能在编译期解析，例如字符串字面量、`ClassName::class`、`self::class`、`parent::class`。
 
@@ -70,12 +70,12 @@ $user->getName(); // 同上
 
 以下情况必须在运行时检查，因为编译期无法完全确定真实对象类型。
 
-### 3.1 `objval()` 和 `toObject(Class::class)` 的对象检查
+### 3.1 `std::object()` 与 `toObject()` 的对象检查
 
-虽然 `objval()` / `toObject(Class::class)` 会在编译期接续类型信息，但它们仍会生成运行时检查：
+虽然两种形式都会在编译期接续类型信息，但仍会生成运行时检查：
 
 ```php
-$user = objval($value, User::class);
+$user = std::object($value, User::class);
 ```
 
 生成的核心逻辑等价于：
@@ -97,7 +97,7 @@ php::toObject(value, ce_User)
 
 ```php
 $child = new Child();
-$child = any($value);
+$child = std::any($value);
 ```
 
 编译器不能在静态阶段知道 `$value` 的真实类，因此会在运行时检查 `$value instanceof Child`。
@@ -134,7 +134,6 @@ $user = $objects[0];
 class Base {}
 class Child extends Base {}
 
-$base = objval(new Child(), Base::class);      // 合法
 $base = (new Child())->toObject(Base::class);  // 合法
 ```
 
@@ -142,8 +141,8 @@ $base = (new Child())->toObject(Base::class);  // 合法
 
 ## 5. 选择建议
 
-- 已经有准确静态类型时，不需要使用 `objval()` 或 `toObject(Class::class)`。
-- 从数组、动态返回值、`mixed` / `any` 值中取出对象后，需要恢复类信息时，使用 `objval()` 或 `toObject(Class::class)`。
-- 希望保留动态类型时，使用 `toAny()` 或 `any()`，不要恢复为 typed object。
-- 需要强制引用时，使用 `toRef()` 或 `refval()`，这与对象类型转换无关。
-
+- 已经有准确静态类型时，不需要使用 `toObject(Class::class)`。
+- 从数组、动态返回值、`mixed` / `any` 值中取出对象后，需要恢复类信息时，使用 `std::object($value, ClassName::class)` 或 `toObject(ClassName::class)`。
+- 与 Zend PHP 共享的代码优先使用 `std::object()`；仅 TypePHP 使用且希望链式书写时可用关键词方法。
+- 希望保留动态类型时，使用 `toAny()` 或 `std::any()`，不要恢复为 typed object。
+- 需要强制引用时，使用 `toRef()` 或 `std::ref()`，这与对象类型转换无关。

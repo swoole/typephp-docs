@@ -2,17 +2,17 @@
 
 编译期函数是 TypePHP 编译器专有的语法入口。编译器在静态编译阶段识别这些函数，并直接生成对应的 C++ 代码；它们通常不会在运行时按普通 PHP 函数查找。
 
-关键词方法是另一套语法体系，例如 `toAny()`、`toRef()`、`toObject()`、`toStdVector()` 等，不列入本文的编译期函数清单。关键词方法详见 [关键词方法](keyword-method.md)。
+关键词方法是另一套语法体系，不列入本文的编译期函数清单，详见[关键词方法](keyword-method.md)。
 
 ## 函数清单
 
 | 函数 | 作用 |
 |------|------|
-| `any($value)` | 将表达式降级为 `mixed` / `any` / `php::Var` |
-| `refval($value)` | 显式按引用传递变量、数组元素或对象属性 |
-| `objval($value, $className)` | 从 `mixed` / `any` 恢复对象声明类型 |
-| `expected($condition)` | 标记条件通常为真，帮助编译器优化常见分支 |
-| `unexpected($condition)` | 标记条件通常为假，帮助编译器优化少见分支 |
+| `std::any([$value])` | 将表达式降级为 `mixed` / `any` / `php::Var`；省略参数时默认为 `null` |
+| `std::object($value, ClassName::class)` | 检查对象并恢复具体类信息 |
+| `std::ref($value)` | 显式按引用传递变量、数组元素或对象属性 |
+| `std::expected($condition)` | 标记条件通常为真，帮助编译器优化常见分支 |
+| `std::unexpected($condition)` | 标记条件通常为假，帮助编译器优化少见分支 |
 | `std::int($value)` | 创建 native int 表达式 |
 | `std::float($value)` | 创建 native float 表达式 |
 | `std::bool($value)` | 创建 native bool 表达式 |
@@ -22,7 +22,7 @@
 | `std::array($type, $size)` | 创建定长 StdArray 容器 |
 | `std::vector($type[, $size])` | 创建动态 StdVector 容器 |
 | `std::map($keyType, $valueType)` | 创建哈希 StdMap 容器 |
-| `std::ordered_map($keyType, $valueType)` | 创建有序 StdOrderedMap 容器 |
+| `std::orderedMap($keyType, $valueType)` | 创建有序 StdOrderedMap 容器 |
 
 ## 使用位置与名称写法
 
@@ -30,42 +30,44 @@
 
 | 函数 | 可使用的位置 | 说明 |
 |------|--------------|------|
-| `any()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值、数组元素、运算式、条件表达式等。 |
-| `objval()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值和方法调用前的对象转换。 |
-| `refval()` | 仅限调用参数 | 用于把一个可引用的值传给需要引用的参数；它不是普通值转换函数。 |
-| `expected()` | 布尔条件表达式 | 用于 `if`、`elseif`、循环或三元表达式等通常为真的条件。 |
-| `unexpected()` | 布尔条件表达式 | 用于错误、越界、缓存未命中等通常为假的条件。 |
+| `std::any()` | 任意普通值表达式位置 | 可用于赋值、函数参数、返回值、数组元素、运算式、条件表达式等。 |
+| `std::object()` | 任意普通值表达式位置 | 检查运行时对象类型，并恢复编译器可识别的具体类信息。 |
+| `std::ref()` | 仅限调用参数 | 用于把一个可引用的值传给需要引用的参数；它不是普通值转换函数。 |
+| `std::expected()` | 布尔条件表达式 | 用于 `if`、`elseif`、循环或三元表达式等通常为真的条件。 |
+| `std::unexpected()` | 布尔条件表达式 | 用于错误、越界、缓存未命中等通常为假的条件。 |
 
-请使用小写、无命名空间前缀的标准写法：`any()`、`objval()`、`refval()`、`expected()`、`unexpected()`。不要依赖 `ANY()`、`\any()` 等大小写或前导反斜杠变体被识别为 TypePHP 编译期函数。
+编译期函数是全局 `std` 类的静态方法。`std` 类名及其方法名遵循 PHP 规则，不区分大小写；`Type::*` 类型常量仍区分大小写。
 
-## any($value)
+## std::any([$value])
 
-`any()` 将表达式的编译期类型降级为动态类型。降级后变量可以接收任意 PHP 值，但编译器也不再为它生成 native type、typed object 或 Native Call 优化。
+`std::any()` 将表达式的编译期类型降级为动态类型。降级后变量可以接收任意 PHP 值，但编译器也不再为它生成 native type、typed object 或 Native Call 优化。
 
-`any()` 是普通值表达式，可以放在任何需要值的位置。例如：
+参数可以省略。无参数调用 `std::any()` 会创建一个初始值为 `null` 的动态值，适合在实际值尚未确定时先建立动态存储。
+
+`std::any()` 是普通值表达式，可以放在任何需要值的位置。例如：
 
 ```php
 function identity(mixed $value): mixed {
-    return any($value);
+    return std::any($value);
 }
 
 function main(): void {
-    $values = [any(1), any("two")];
-    var_dump(any(3) + 1);
-    var_dump(identity(any($values[0])));
+    $values = [std::any(1), std::any("two")];
+    var_dump(std::any(3) + 1);
+    var_dump(identity(std::any($values[0])));
 }
 ```
 
 ```php
 function main(): void {
-    $value = any(10);
+    $value = std::any(10);
 
     $value = "string";
     var_dump($value);
 }
 ```
 
-`any()` 常用于分支中可能产生不同类型的场景：
+`std::any()` 常用于分支中可能产生不同类型的场景：
 
 ```php
 class FileLogger {}
@@ -73,9 +75,9 @@ class NullLogger {}
 
 function create_logger(bool $debug) {
     if ($debug) {
-        $logger = any(new FileLogger());
+        $logger = std::any(new FileLogger());
     } else {
-        $logger = any(new NullLogger());
+        $logger = std::any(new NullLogger());
     }
 
     return $logger;
@@ -86,31 +88,61 @@ function create_logger(bool $debug) {
 
 ```php
 function main(): void {
-    $a = any(10);
+    $a = std::any(10);
     $b = $a / 3;
 
     var_dump($b); // float(3.333333...)
 }
 ```
 
-## refval($value)
+## std::object($value, ClassName::class)
 
-`refval()` 用于显式传递引用。它主要用于动态调用、闭包调用、可变函数调用等编译期无法获知参数是否为引用的场景。
-
-`refval()` 的参数必须是可作为引用的左值：变量、数组元素或对象属性。不能传入字面量、函数返回值、算术表达式等临时值。
-
-`refval()` 只能作为一次函数或方法调用的参数使用：
+`std::object()` 是 `$value->toObject(ClassName::class)` 的函数形式。它会检查
+`$value` 是否属于指定类，并为后续编译恢复具体类信息：
 
 ```php
-$callback(refval($value));
+$user = std::object($payload['user'], User::class);
+echo $user->getName();
+```
+
+类名参数必须能在编译期解析，支持具体类名、类名字符串字面量、`self::class`
+和 `parent::class`。子类对象可以通过父类或接口检查。
+
+关键词方法语法是 TypePHP 独有的，而静态函数调用可以在 Zend PHP 执行路径中
+提供兼容实现，从而让同一份业务代码同时运行：
+
+```php
+class std {
+    public static function object(mixed $value, string $class): object {
+        if (!$value instanceof $class) {
+            throw new TypeError("Expected an instance of {$class}");
+        }
+        return $value;
+    }
+}
+```
+
+此后应用代码在 Zend PHP 和 TypePHP 中均可调用 `std::object()`。TypePHP 会将其
+直接降低为带检查的对象转换，不产生运行时静态方法分派。
+
+## std::ref($value)
+
+`std::ref()` 用于显式传递引用。它主要用于动态调用、闭包调用、可变函数调用等编译期无法获知参数是否为引用的场景。
+
+`std::ref()` 的参数必须是可作为引用的左值：变量、数组元素或对象属性。不能传入字面量、函数返回值、算术表达式等临时值。
+
+`std::ref()` 只能作为一次函数或方法调用的参数使用：
+
+```php
+$callback(std::ref($value));
 ```
 
 不要把它当作普通值表达式使用；例如以下写法不受支持：
 
 ```php
-return refval($value);
-$list = [refval($value)];
-$sum = refval($value) + 1;
+return std::ref($value);
+$list = [std::ref($value)];
+$sum = std::ref($value) + 1;
 ```
 
 变量引用：
@@ -122,7 +154,7 @@ function main(): void {
     };
 
     $name = "php";
-    $fn(refval($name));
+    $fn(std::ref($name));
 
     var_dump($name); // string(12) "php compiler"
 }
@@ -137,7 +169,7 @@ function main(): void {
     };
 
     $data = ["name" => "origin"];
-    $fn(refval($data["name"]));
+    $fn(std::ref($data["name"]));
 
     var_dump($data["name"]); // string(7) "changed"
 }
@@ -156,13 +188,13 @@ function main(): void {
     };
 
     $box = new Box();
-    $fn(refval($box->value));
+    $fn(std::ref($box->value));
 
     var_dump($box->value); // string(7) "changed"
 }
 ```
 
-静态函数和内置函数的参数信息在编译期明确时，编译器会自动处理引用参数，不需要额外使用 `refval()`：
+静态函数和内置函数的参数信息在编译期明确时，编译器会自动处理引用参数，不需要额外使用 `std::ref()`：
 
 ```php
 function main(): void {
@@ -171,85 +203,20 @@ function main(): void {
 }
 ```
 
-## objval($value, $className)
+原生 `T&` 引用、局部别名、动态调用写回与引用逃逸限制详见[强类型引用](strong-references.md)。
 
-`objval()` 从 `mixed` / `any` 值恢复对象声明类型。它会让编译器知道后续表达式按指定类、父类、抽象类或接口处理，并在运行时插入对象类型检查。
+## std::expected($condition) 和 std::unexpected($condition)
 
-第二个参数只支持字符串字面量或 `ClassName::class`。不能使用变量动态传入类名。
+`std::expected()` 和 `std::unexpected()` 用于向编译器提供分支发生概率的提示：
 
-`objval()` 是普通值表达式。除赋值外，也可以直接用于参数、返回值、数组元素或紧随其后的方法调用：
-
-```php
-function display_name(mixed $value): string {
-    return objval($value, User::class)->name();
-}
-```
-
-```php
-class User {
-    public function name(): string {
-        return "rango";
-    }
-}
-
-function main(): void {
-    $data = ["user" => new User()];
-
-    $user = objval($data["user"], User::class);
-    var_dump($user->name());
-}
-```
-
-使用字符串类名：
-
-```php
-class Service {
-    public function run(): string {
-        return "ok";
-    }
-}
-
-function main(): void {
-    $value = any(new Service());
-
-    $service = objval($value, "Service");
-    var_dump($service->run());
-}
-```
-
-`objval()` 使用 `is-a` 关系检查对象类型，因此子类对象可以作为父类、抽象类或接口使用：
-
-```php
-interface Logger {
-    public function write(string $message): void;
-}
-
-class FileLogger implements Logger {
-    public function write(string $message): void {
-        echo $message;
-    }
-}
-
-function main(): void {
-    $value = any(new FileLogger());
-    $logger = objval($value, Logger::class);
-
-    $logger->write("hello");
-}
-```
-
-## expected($condition) 和 unexpected($condition)
-
-`expected()` 和 `unexpected()` 用于向编译器提供分支发生概率的提示：
-
-- `expected($condition)` 表示该条件在大多数情况下为真。
-- `unexpected($condition)` 表示该条件在大多数情况下为假。
+- `std::expected($condition)` 表示该条件在大多数情况下为真。
+- `std::unexpected($condition)` 表示该条件在大多数情况下为假。
 
 例如，把正常处理路径标记为常见分支：
 
 ```php
 function handle_request(bool $ready): int {
-    if (expected($ready)) {
+    if (std::expected($ready)) {
         // 绝大多数请求会进入这个分支
         return 1;
     }
@@ -262,7 +229,7 @@ function handle_request(bool $ready): int {
 
 ```php
 function normalize_id(int $id): int {
-    if (unexpected($id < 0)) {
+    if (std::unexpected($id < 0)) {
         return 0;
     }
 
@@ -274,7 +241,7 @@ function normalize_id(int $id): int {
 
 ```php
 function countdown(int $remaining): void {
-    while (expected($remaining > 0)) {
+    while (std::expected($remaining > 0)) {
         echo $remaining, "\n";
         $remaining--;
     }
@@ -287,7 +254,7 @@ function countdown(int $remaining): void {
 
 ```php
 if ($condition) {
-    // 不需要强行添加 expected() 或 unexpected()
+    // 不需要强行添加 std::expected() 或 std::unexpected()
 }
 ```
 
@@ -311,7 +278,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $value = any("123");
+    $value = std::any("123");
     $id = std::int($value);
 
     var_dump($id + 1);
@@ -335,7 +302,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $value = any("3.14");
+    $value = std::any("3.14");
     $pi = std::float($value);
 
     var_dump($pi);
@@ -360,7 +327,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $value = any("");
+    $value = std::any("");
     $ok = std::bool($value);
 
     var_dump($ok); // bool(false)
@@ -595,13 +562,13 @@ function main(): void {
 }
 ```
 
-## std::ordered_map($keyType, $valueType)
+## std::orderedMap($keyType, $valueType)
 
-`std::ordered_map()` 创建有序 StdOrderedMap 容器，底层对应 C++ `std::map`。键类型限制与 `std::map()` 相同。
+`std::orderedMap()` 创建有序 StdOrderedMap 容器，底层对应 C++ `std::map`。键类型限制与 `std::map()` 相同。
 
 ```php
 function main(): void {
-    $items = std::ordered_map(Type::String, Type::Int);
+    $items = std::orderedMap(Type::String, Type::Int);
 
     $items["b"] = 2;
     $items["a"] = 1;
@@ -616,7 +583,7 @@ function main(): void {
 
 ```php
 function main(): void {
-    $balances = std::ordered_map(Type::Int, Type::Decimal);
+    $balances = std::orderedMap(Type::Int, Type::Decimal);
 
     $balances[1] = std::decimal("19.99");
     $balances[2] = std::decimal("100.50");
@@ -646,7 +613,7 @@ Std 容器的 `$type`、`$keyType`、`$valueType` 不是普通运行时变量，
 
 ## 使用限制
 
-`std::array()`、`std::vector()`、`std::map()`、`std::ordered_map()` 是容器构造入口，只能用于变量首次赋值，并且要求位于函数顶层作用域：
+`std::array()`、`std::vector()`、`std::map()`、`std::orderedMap()` 是容器构造入口，只能用于变量首次赋值，并且要求位于函数顶层作用域：
 
 ```php
 function main(): void {

@@ -113,6 +113,10 @@ build-dir: build
 
 Linux `bin` 模式需要 `libphp.so` 或 `libphp.a`。二进制 `tpc` 自身也依赖 `libphp.so` 和 `libphpx.so`，所以它不能在缺库时自行启动安装器。Composer 用户应通过 `vendor/bin/tpc.php` 自动准备这些库，详见[Composer 安装](composer.md)。`ext` 模式不触发 Embed PHP 安装器。
 
+如果希望生成不依赖 `libphp`、不包含 ZendVM 的原生程序，可使用 `--nano`。Nano
+会把 PHP Nano 与 PHPX 的 C/C++ 源码直接加入应用构建，具体安装方法、平台差异和
+功能边界见 [Nano 原生编译](nano.md)。
+
 ## 检查生成代码
 
 `--dry` 只生成 C++ 文件，不调用 C++ 编译器和链接器：

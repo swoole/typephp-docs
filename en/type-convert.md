@@ -10,7 +10,6 @@ Called on any expression, converting the result to the corresponding native type
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function convert_basic(mixed $input): void
 {
@@ -29,7 +28,7 @@ function convert_basic(mixed $input): void
 | `toString()` | `php::Str` | `php::toString($expr)` | |
 | `toBool()` | `php::Bool` | `php::toBool($expr)` | |
 | `toArray()` | `php::Array` | `php::toArray($expr)` | See "Object to Array" below |
-| `toAny()` | `php::Var` | `php::Var($expr)` | Degrades to dynamic type, equivalent to `any($expr)` |
+| `toAny()` | `php::Var` | `php::Var($expr)` | Degrades to dynamic type, equivalent to `std::any($expr)` |
 
 ### `toArray()` Object to Array
 
@@ -79,20 +78,19 @@ PHP's `(int)` / `(float)` cast syntax is also supported, but the `to*` methods h
 
 ## 2. Dynamic Type and Reference Conversion
 
-`toAny()` and `toRef()` are TypePHP-specific keyword methods used to replace the functional forms `any()` and `refval()`. The two are fully equivalent, but the method form is better suited for chained expressions.
+`toAny()` and `toRef()` are TypePHP-specific keyword methods used to replace the functional forms `std::any()` and `std::ref()`. The two are fully equivalent, but the method form is better suited for chained expressions.
 
 ### 2.1 `toAny()`
 
-`toAny()` degrades an expression to the `php::Var` / `mixed` / `any` dynamic type, equivalent to `any($expr)`. It does not restore object class info and does not generate object type checks.
+`toAny()` degrades an expression to the `php::Var` / `mixed` / `any` dynamic type, equivalent to `std::any($expr)`. It does not restore object class info and does not generate object type checks.
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function any_example(object $value): void
 {
-    $a = any($value);
-    $b = $value->toAny();  // equivalent to any($value)
+    $a = std::any($value);
+    $b = $value->toAny();  // equivalent to std::any($value)
 }
 ```
 
@@ -111,20 +109,19 @@ $value->toAny($type);  // ❌ compile error
 
 ### 2.2 `toRef()`
 
-`toRef()` explicitly converts an expression to a reference, equivalent to `refval($expr)`. It is mainly used for scenarios where the compiler cannot know at compile time whether a parameter is passed by reference, such as dynamic calls and closure calls.
+`toRef()` explicitly converts an expression to a reference, equivalent to `std::ref($expr)`. It is mainly used for scenarios where the compiler cannot know at compile time whether a parameter is passed by reference, such as dynamic calls and closure calls.
 
 ```php
-function append_text(&$value, string $suffix): void
-{
-    $value .= $suffix;
-}
-
 function ref_example(): void
 {
+    $append_text = function (string &$value, string $suffix): void {
+        $value .= $suffix;
+    };
+
     $name = 'AOT';
 
-    append_text(refval($name), ' compiler');
-    append_text($name->toRef(), ' runtime'); // equivalent to refval($name)
+    $append_text(std::ref($name), ' compiler');
+    $append_text($name->toRef(), ' runtime'); // equivalent to std::ref($name)
 }
 ```
 
@@ -139,14 +136,16 @@ $object->prop->toRef(); // ✅ object property
 foo()->toRef();         // ❌ call result cannot be converted to reference
 ```
 
-Like `refval()`, `toRef()` accepts no arguments:
+Like `std::ref()`, `toRef()` accepts no arguments:
 
 ```php
 $value->toRef();     // ✅
 $value->toRef(true); // ❌ compile error
 ```
 
-> **Tip**: When the parameter information of static functions and built-in functions is clear, the compiler can handle reference parameters automatically. Only scenarios where the parameter signature cannot be obtained at compile time, such as dynamic calls, closure calls, and variable function calls, require the explicit use of `toRef()` / `refval()`.
+> **Tip**: When the parameter information of static functions and built-in functions is clear, the compiler can handle reference parameters automatically. Only scenarios where the parameter signature cannot be obtained at compile time, such as dynamic calls, closure calls, and variable function calls, require the explicit use of `toRef()` / `std::ref()`.
+
+For native `T&` references and their non-escape restrictions, see [Strongly Typed References](strong-references.md).
 
 ---
 
@@ -156,7 +155,6 @@ $value->toRef(true); // ❌ compile error
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function stream_example(): void
 {
@@ -180,7 +178,6 @@ Big* types (BigInt / Decimal / BigFloat) define more precise conversion paths; t
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function bigint_convert(): void
 {
@@ -241,7 +238,6 @@ Big* → String always goes through each type's `toString()` static method, avoi
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function object_convert(mixed $input): void
 {
@@ -259,7 +255,7 @@ function object_convert(mixed $input): void
 | `$x->toObject()` | `php::toObject($x)` | None (`php::Object`) |
 | `$x->toObject(User::class)` | `php::toObject($x, ce_User)` | Yes (compiler knows the target class) |
 
-> **Tip**: Both `toObject(ClassName::class)` and `objval($var, ClassName::class)` can be used for object type continuation; the former supports chained calls. Object conversions with a class name use PHP `instanceof` / `is-a` relationships for runtime checking. See [Object Type Conversion](object-type-conversion.md) for details.
+> **Tip**: `toObject(ClassName::class)` continues an object's concrete type and supports chained calls. Object conversions with a class name use PHP `instanceof` / `is-a` relationships for runtime checking. See [Object Type Conversion](object-type-conversion.md) for details.
 
 ---
 
@@ -269,7 +265,6 @@ The `toStd*` methods convert a variable of type `php::Var` into the specified C+
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function std_convert(): void
 {
@@ -330,7 +325,7 @@ function bar(): void
     var_dump(__FUNCTION__);
 }
 
-$value = bar()->toAny();     // equivalent to any(null)
+$value = bar()->toAny();     // equivalent to std::any(null)
 $text = bar()->toString();   // equivalent to php::toString(null)
 ```
 
@@ -355,7 +350,6 @@ This design allows `to*` methods to work unambiguously on `mixed` / `any` types,
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function comprehensive_convert(): void
 {

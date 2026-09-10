@@ -84,7 +84,6 @@ Variant &setNull() {
 ### Behavior
 
 ```php
-use native_types;
 
 $a = 42;        // php::Int — the value is stored directly in zval.lval on the stack
 $b = $a;        // copies an 8-byte integer, with no reference counting operation

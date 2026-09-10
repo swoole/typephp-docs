@@ -2,22 +2,22 @@ TypePHP 编译器除了常规的`PHP`语法之外添加了一些专有的特性�
 
 > 文档中`any`类型表示该变量无类型，对应的`PHP`类型为`mixed`，`PHPX`类型为`php::Var`
 
-## use native_types
+## 原生类型与 `use varint_types`
 
-要求编译器将`int`、`float`、`bool`类型转为原生的类型，以提高运算性能。
+推断为 `int`、`float`、`bool` 的局部变量默认使用固定原生存储（`php::Int`、`php::Float`、`php::Bool`）。
+
+仅当整个文件需要 Zend PHP 的整数动态扩展语义时，使用 `use varint_types`：
 
 ```php
-use native_types;
+use varint_types;
 
-function foo() {
-    $a = 1000;
-    while($a--) {
-
-    }
+function divide(): mixed {
+    $a = 10;       // 本文件推断出的整数使用 php::Var
+    return $a / 3; // float(3.3333...)
 }
 ```
 
-使用`use native_types`后，局部变量赋值为整数时，会被声明为`php::Int`而不是`php::Var`，这在密集运算场景下会有巨大的性能提升。若不添加，则默认为`php::Var`，将使用`zval`结构体保存整数。
+该指令只影响推断出的整数，浮点数和布尔值仍使用固定原生类型。若只有一个表达式需要动态类型，应使用 `std::any($value)`。
 
 ## use bigint_types
 
@@ -44,15 +44,15 @@ function main(): void {
 
 使用 `use bigint_types` 后，所有 `Scalar_Int` 字面量在编译时会被转为 `php::newBigInt(N)` 调用。若不使用此指令，则只有 19 位及以上的超长整数字面量才会被自动识别为 BigInt（参见 [math.md §11](math.md#11-超长字面量自动识别)）。
 
-### 与 `use native_types` 的区别
+### 与默认类型模式的关系
 
 | 指令 | 整数字面量类型 | 适用场景 |
 |------|--------------|---------|
 | 无 | `php::Int`（原生 int64） | 普通整数运算 |
-| `use native_types` | `php::Int`（原生 int64） | 高性能整数运算 |
+| `use varint_types` | `php::Var`（Zend 整数语义） | 整数溢出转浮点与动态整数运算 |
 | `use bigint_types` | `php::BigInt`（任意精度） | 需要大整数或链式调用 BigInt 方法 |
 
-`use bigint_types` 和 `use native_types` 可以同时使用。同时使用时，非字面量的整数变量仍为 `php::Int`，但整数字面量会被提升为 `php::BigInt`。
+`use bigint_types` 会把整数字面量提升为 `php::BigInt`；普通推断整数仍使用默认原生存储，除非文件同时选择了 `use varint_types`。
 
 ## use decimal_types
 
@@ -144,16 +144,16 @@ $obj->foo();
 除了数组元素的类型接续之外，赋值操作若右值为`any`类型，默认左值也会被声明为`any`类型，可以使用上述方法声明更准确的类型。
 
 ```php
-$a = any(3.001);
+$a = std::any(3.001);
 // $b 的类型将是 php::Int，值会转为 3 
 $b = intval($a);
 ```
 
-## any($value)
+## std::any($value)
 此函数的目的是将变量类型标注为 `php::Var` ，而不是原生类型。例如：
 
 ```php
-$a = any(123);
+$a = std::any(123);
 $b = 123;
 ```
 
@@ -163,39 +163,16 @@ $b = 123;
 $a = 10; // $a 的类型为 Int
 $b = $a / 3;  // $b 的值为 3 ，类型为整型
 
-$a = any(10); // $a 的类型为 Var
+$a = std::any(10); // $a 的类型为 Var
 $b = $a / 3;  // $b 的值为 3.33333...，类型为浮点型
 ```
 
-`any($value)` 与关键词方法 `$value->toAny()` 等价。二者都只影响编译期类型推断，不会产生额外的运行时类型检查。
+`std::any($value)` 与关键词方法 `$value->toAny()` 等价。二者都只影响编译期类型推断，不会产生额外的运行时类型检查。
 
 
-## objval($value, $className)
+## std::ref($value)
 
-从 `mixed` / `any` 类型变量重建带类信息的对象类型，是
-
-`$var->toObject(ClassName::class)` 的函数式写法。`objval()` 会在编译期恢复对象类型信息，使后续方法调用有机会生成 Native Call；运行时仍会校验实际对象是否满足目标类、父类或接口约束。
-
-```php
-$obj = $array['object'];
-$typed = objval($obj, App\Hello\Test::class);
-$typed->foo();  // 编译器可生成 Native Call
-```
-
-`objval()` 第二个参数仅支持字符串字面量或 `ClassName::class` 常量。
-
-```php
-// ✅ 正确用法
-$obj = objval($var, TestObjval::class);
-$obj = objval($var, 'TestObjval');
-
-// ❌ 第二个参数不能是变量
-$obj = objval($var, $someClass);
-```
-
-## refval($value)
-
-在动态调用中将值传递修改为引用传递。`refval()` 接受**变量**、**数组元素**或**对象属性**作为参数，不能传入表达式。`refval($value)` 与关键词方法 `$value->toRef()` 等价。
+在动态调用中将值传递修改为引用传递。`std::ref()` 接受**变量**、**数组元素**或**对象属性**作为参数，不能传入表达式。`std::ref($value)` 与关键词方法 `$value->toRef()` 等价。
 
 **变量引用：**
 
@@ -203,7 +180,7 @@ $obj = objval($var, $someClass);
 eval('function retval_test(&$name) { $name .= "refval test"; }');
 
 $name = 'php ';
-retval_test(refval($name));
+retval_test(std::ref($name));
 echo $name; // 输出：php refval test
 ```
 
@@ -213,7 +190,7 @@ echo $name; // 输出：php refval test
 eval('function array_ref_test(&$val) { $val = "modified"; }');
 
 $arr = ['key' => 'original'];
-array_ref_test(refval($arr['key']));
+array_ref_test(std::ref($arr['key']));
 echo $arr['key']; // 输出：modified
 ```
 
@@ -224,26 +201,26 @@ eval('function prop_ref_test(&$val) { $val = "modified"; }');
 
 $obj = new stdClass();
 $obj->prop = 'original';
-prop_ref_test(refval($obj->prop));
+prop_ref_test(std::ref($obj->prop));
 echo $obj->prop; // 输出：modified
 ```
 
-`eval()` 是一个运行时执行指令的函数，它动态生成了函数。由于在静态编译阶段，编译器无法获知这些动态函数的参数类型，因此无法自动识别引用传递参数，这时就需要 `refval()` 函数显式地将值转为引用传递。
+`eval()` 是一个运行时执行指令的函数，它动态生成了函数。由于在静态编译阶段，编译器无法获知这些动态函数的参数类型，因此无法自动识别引用传递参数，这时就需要 `std::ref()` 函数显式地将值转为引用传递。
 
 以下用法是**错误**的：
 
 ```php
-// ❌ refval() 不能传入表达式
-retval_test(refval("literal string"));
-retval_test(refval($a + $b));
-retval_test(refval(foo()));
+// ❌ std::ref() 不能传入表达式
+retval_test(std::ref("literal string"));
+retval_test(std::ref($a + $b));
+retval_test(std::ref(foo()));
 
 // ❌ toRef() 同样不能用于临时表达式
 retval_test(($a + $b)->toRef());
 retval_test(foo()->toRef());
 ```
 
-而下面的代码是不需要添加`refval()`的：
+而下面的代码是不需要添加`std::ref()`的：
 ```php
 class Request {
     public $data;
@@ -259,7 +236,7 @@ function main()
 }
 ```
 
-`parse_str()`是一个内置函数，在编译期就可以得到它的参数信息，第二个参数是引用类型，因此编译器会自动将参数修改为引用传递，而不需要额外添加`refval()`函数。
+`parse_str()`是一个内置函数，在编译期就可以得到它的参数信息，第二个参数是引用类型，因此编译器会自动将参数修改为引用传递，而不需要额外添加`std::ref()`函数。
 
 
 ## toStream() 关键词方法

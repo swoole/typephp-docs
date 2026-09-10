@@ -41,6 +41,8 @@ Return types are likewise checked when the function exits and the return value l
 
 `declare(strict_types=1)` only disables part of the implicit scalar conversions at function call boundaries, causing mismatched parameters or return values to throw a `TypeError`; it does not make local variables or parameters fixed types inside the function body, and therefore does not convert ZendPHP into a statically strongly-typed language.
 
+TypePHP always compiles in strict mode. The declaration is accepted but redundant, while `declare(strict_types=0)` is rejected. TypePHP's fixed local types come from compile-time inference and storage rules, not from the PHP declaration itself.
+
 In PHP's mutable storage, what truly carries type constraints persistently is a declared object property, including static properties. Property values can be modified, but the declared type of a property cannot change at runtime; every write is checked by ZendVM:
 
 ```php
@@ -122,11 +124,10 @@ The TypePHP compiler supports the following C++ storage types (`php::*`):
 
 ## 2. Native Types
 
-Under the `use native_types` declaration, the compiler maps `int`, `float`, and `bool` to native C++ types, eliminating `zval` wrapping overhead.
+The compiler maps inferred `int`, `float`, and `bool` locals to native C++ types by default, eliminating `zval` wrapping overhead. Native scalar storage is fixed and is not silently promoted to `php::Var` later.
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function sum(int $n): int {
     $total = 0;        // php::Int
@@ -138,7 +139,7 @@ function sum(int $n): int {
 }
 ```
 
-Without `use native_types`, all variables default to `php::Var` (dynamic type).
+Use `std::any($value)` when one expression needs dynamic storage. Use `use varint_types` when inferred integers throughout a file need Zend integer widening behavior; this directive does not change inferred `float` or `bool` storage.
 
 ### 2.1 Native Type and PHP Type Declaration Mapping
 
@@ -167,7 +168,6 @@ The TypePHP compiler provides three high-precision numeric types. See [math.md](
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // Construct via std:: factory functions
 $a = std::bigInt("12345678901234567890");
@@ -205,7 +205,6 @@ If the data must remain an ordinary PHP `array` but you want the compiler to che
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // std::vector — dynamic array
 $v = std::vector(Type::Int);
@@ -216,8 +215,8 @@ $v[] = 20;
 $a = std::array(Type::Float, 5);
 $a[0] = 3.14;
 
-// std::ordered_map — ordered map
-$m = std::ordered_map(Type::String, Type::Int);
+// std::orderedMap — ordered map
+$m = std::orderedMap(Type::String, Type::Int);
 $m["key"] = 100;
 
 // std::map — hash map
@@ -258,7 +257,7 @@ The compiler performs type inference on expressions at compile time via `detectT
 | Ultra-long integer (≥19 digits) | Auto-recognized as `php::BigInt` |
 | High-precision float (≥16 significant digits) | Auto-recognized as `php::Decimal` |
 | Boolean literals `true` / `false` | `php::Bool` |
-| String literal `"hello"` | `php::Str` (when `native_types` is enabled) |
+| String literal `"hello"` | `php::Str` |
 | Array literal `[1, 2]` | `php::Array` |
 
 ### 5.2 Type Cast Expressions
@@ -332,77 +331,28 @@ $g = std::bigInt($a->toString());    // Decimal → String → BigInt
 $h = std::decimal($a->toString());   // BigInt → String → Decimal
 ```
 
-### 6.3 Type Continuation (Recovering Type from Var)
+### 6.3 Type Erasure
 
-After taking an element out of an array or calling a function that returns an `any` type, the compiler loses the type information. Use the following approaches to continue the type:
-
-```php
-// Object type continuation
-$user = $array['user']->toObject(User::class);
-echo $user->greet();  // the compiler can generate a Native Call
-
-// Stream type continuation
-$sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
-$client = $sockets[0]->toStream();
-$client->write("hello");
-
-// Basic type cast syntax
-$v = (int) $array['count'];       // → php::Int
-$v = (float) $array['price'];     // → php::Float
-$v = (bool) $array['active'];     // → php::Bool
-$v = (string) $array['name'];     // → php::Str
-$v = (array) $array['items'];     // → php::Array
-
-// Basic type conversion functions
-$v = intval($array['count']);     // → php::Int
-$v = floatval($array['price']);   // → php::Float
-$v = boolval($array['active']);   // → php::Bool
-$v = strval($array['name']);      // → php::Str
-
-// Explicitly degrade to dynamic type
-$v = $array['mixed']->toAny();    // → php::Var, equivalent to any($array['mixed'])
-
-// Explicitly convert to reference
-$ref = $array['value']->toRef();  // → php::Ref, equivalent to refval($array['value'])
-```
-
-> **Note**: The `(object)` cast yields `php::Object`, which **does not contain concrete class info**, so the compiler cannot optimize its methods via Native Call. Always use `toObject(ClassName::class)` to reconstruct the object type.
-
-### 6.4 Type Discarding
-
-In some scenarios, a variable needs to hold values of different types across different conditional branches (such as objects of different classes). In that case the compiler's static type inference becomes an obstacle — the compiler infers the type from the first assignment, and assigning a different type later will cause an error. Using `any()` or the equivalent keyword method `toAny()` marks the type as `php::Var`, giving up compile-time type tracking and delegating to runtime dynamic handling.
+`std::any($value)` and `$value->toAny()` erase a definite type into dynamic `php::Var` storage. The value may then change PHP type and use Zend dynamic dispatch, but fixed-type and typed-object optimizations no longer apply.
 
 ```php
-class Foo1 {
-    public function run() {
-        var_dump(__METHOD__);
-    }
-}
-
-class Foo2 {
-    public function run() {
-        var_dump(__METHOD__);
-    }
-}
-
-function main() {
-    $rand = random_int(0, 10000);
-    if ($rand % 2) {
-        $o = any(new Foo1());
-    } else {
-        $o = any(new Foo2());
-    }
-    if (method_exists($o, 'run')) {
-        $o->run();
-    }
-}
+$value = std::any(new User());
+$value = "dynamic";
 ```
 
-In this example:
-- Without `any()`, the compiler locks the type of `$o` to `Foo1`, and assigning a `Foo2` object in the `else` branch will report a type conflict error
-- With `any()`, `$o` is marked as `php::Var`, can accept values of any type, and method calls go through dynamic dispatch
+Global/static dynamic slots and ordinary PHP array elements are also common type-erasure boundaries. See [Type Erasure and Recovery](type-erasure.md) for their storage rules and restrictions.
 
-`any()` and `toAny()` only affect compile-time type inference and do not generate additional runtime type checks. Note: after degrading to `php::Var`, the compiler will no longer generate typed object Native Call optimizations for that variable.
+### 6.4 Type Recovery
+
+A dynamic value returns to fixed storage through an explicit conversion or assertion. Scalar types use casts, conversion functions, `toInt()` and similar methods; objects use `toObject(ClassName::class)` to restore concrete class information with a runtime type check.
+
+```php
+$id = $payload['id']->toInt();
+$user = $payload['user']->toObject(User::class);
+$user->load($id);
+```
+
+Recovery does not remember the erased type; the program must state the type it currently expects. See [Type Erasure and Recovery](type-erasure.md) for the complete mapping of scalar, object, stream, high-precision, and Std-container recovery operations.
 
 
 ## 7. Type Limitations
@@ -458,7 +408,7 @@ The `(object)` cast and `object` type declaration only produce `php::Object`; th
 
 ### 7.7 Std Container Key Type Limitations
 
-The key types of `std::ordered_map` and `std::map` only support:
+The key types of `std::orderedMap` and `std::map` only support:
 - `Type::Int` — integer key
 - `Type::String` / `Type::String` — string key
 
@@ -468,9 +418,20 @@ Other key types cause a compile error.
 
 When a std container is in a `foreach` loop with locking enabled, `unset` cannot be performed on its elements.
 
-### 7.9 Native-Type Variables Cannot Be unset
+### 7.9 `unset()` Restores a Fixed Local's Initial State
 
-Native-type variables (`php::Int`, `php::Float`, etc.) cannot use `unset()`, because they are stack value types in C++.
+Calling `unset()` on a fixed typed local releases its current value and restores the type's initial state; it does not make the variable undefined or change its type.
+
+| Local type | Value after `unset()` |
+|---|---|
+| `int` | `0` |
+| `float` | `0.0` |
+| `bool` | `false` |
+| `string` | empty string |
+| `array` | empty array |
+| typed object | `null` |
+
+An object has no separate "empty object" value, so `null` is its initial state. A typed object local may also be assigned `null`; any later non-null assignment must still satisfy its class constraint. Dynamic `php::Var` storage retains ordinary PHP undefined behavior.
 
 ### 7.10 Object Property Types Are Fixed; Fixed-Value Types Cannot Be unset or Changed to null
 
@@ -478,7 +439,6 @@ The TypePHP compiler requires object properties to always maintain the declared 
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 class User {
     public int $id = 0;
@@ -507,11 +467,13 @@ class User {
 $user->id = null; // ✅ the type declaration allows null
 ```
 
-### 7.11 Disable Native Types to Enable Specific Behavior
+### 7.11 Select Dynamic Integer Behavior
 
-When dynamic features such as overflow detection and dynamic type assignment are needed, do not use `use native_types`, or use `any()` to mark the variable as `php::Var`:
+Use `std::any()` when one value needs dynamic assignment or Zend arithmetic semantics:
 
 ```php
-$a = any(10);        // $a is of type php::Var, retaining overflow detection
+$a = std::any(10);        // $a is of type php::Var, retaining overflow detection
 $b = $a / 3;         // float division, result is 3.333...
 ```
+
+For a whole file whose inferred integers need overflow-to-float and fractional division behavior, declare `use varint_types`; explicitly constructed `std::int()` values remain fixed native integers.

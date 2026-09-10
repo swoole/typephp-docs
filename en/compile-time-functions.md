@@ -2,17 +2,17 @@
 
 Compile-time functions are syntax entry points proprietary to the TypePHP compiler. The compiler recognizes these functions during the static compilation stage and directly generates the corresponding C++ code; they are generally not looked up at runtime as ordinary PHP functions.
 
-Keyword methods are a separate syntax system, such as `toAny()`, `toRef()`, `toObject()`, `toStdVector()`, etc., and are not included in the compile-time function list in this document. For keyword methods, see [Keyword Methods](keyword-method.md).
+Keyword methods are a separate syntax system and are not included in the compile-time function list in this document. See [Keyword Methods](keyword-method.md).
 
 ## Function List
 
 | Function | Purpose |
 |------|------|
-| `any($value)` | downgrades an expression to `mixed` / `any` / `php::Var` |
-| `refval($value)` | explicitly passes a variable, array element, or object property by reference |
-| `objval($value, $className)` | restores the declared object type from `mixed` / `any` |
-| `expected($condition)` | marks a condition as usually true, helping the compiler optimize the common branch |
-| `unexpected($condition)` | marks a condition as usually false, helping the compiler optimize the rare branch |
+| `std::any([$value])` | downgrades an expression to `mixed` / `any` / `php::Var`; defaults to `null` when omitted |
+| `std::object($value, ClassName::class)` | validates an object and restores its concrete class information |
+| `std::ref($value)` | explicitly passes a variable, array element, or object property by reference |
+| `std::expected($condition)` | marks a condition as usually true, helping the compiler optimize the common branch |
+| `std::unexpected($condition)` | marks a condition as usually false, helping the compiler optimize the rare branch |
 | `std::int($value)` | creates a native int expression |
 | `std::float($value)` | creates a native float expression |
 | `std::bool($value)` | creates a native bool expression |
@@ -22,7 +22,7 @@ Keyword methods are a separate syntax system, such as `toAny()`, `toRef()`, `toO
 | `std::array($type, $size)` | creates a fixed-size StdArray container |
 | `std::vector($type[, $size])` | creates a dynamic StdVector container |
 | `std::map($keyType, $valueType)` | creates a hash StdMap container |
-| `std::ordered_map($keyType, $valueType)` | creates an ordered StdOrderedMap container |
+| `std::orderedMap($keyType, $valueType)` | creates an ordered StdOrderedMap container |
 
 ## Usage Positions and Name Spelling
 
@@ -30,42 +30,44 @@ These core functions serve different purposes and apply in different positions:
 
 | Function | Usable position | Description |
 |------|--------------|------|
-| `any()` | any ordinary value expression position | usable in assignments, function arguments, return values, array elements, arithmetic expressions, conditional expressions, etc. |
-| `objval()` | any ordinary value expression position | usable in assignments, function arguments, return values, and object conversion before a method call. |
-| `refval()` | call arguments only | used to pass a referenceable value to a parameter that requires a reference; it is not an ordinary value conversion function. |
-| `expected()` | boolean condition expressions | used in conditions that are usually true, such as `if`, `elseif`, loops, or ternary expressions. |
-| `unexpected()` | boolean condition expressions | used in conditions that are usually false, such as errors, out-of-bounds, or cache misses. |
+| `std::any()` | any ordinary value expression position | usable in assignments, function arguments, return values, array elements, arithmetic expressions, conditional expressions, etc. |
+| `std::object()` | any ordinary value expression position | checks the runtime object type and restores the concrete class known to the compiler. |
+| `std::ref()` | call arguments only | used to pass a referenceable value to a parameter that requires a reference; it is not an ordinary value conversion function. |
+| `std::expected()` | boolean condition expressions | used in conditions that are usually true, such as `if`, `elseif`, loops, or ternary expressions. |
+| `std::unexpected()` | boolean condition expressions | used in conditions that are usually false, such as errors, out-of-bounds, or cache misses. |
 
-Use the standard lowercase spelling without a namespace prefix: `any()`, `objval()`, `refval()`, `expected()`, `unexpected()`. Do not rely on variants such as `ANY()` or `\any()` being recognized as TypePHP compile-time functions.
+Compile-time functions are static methods of the global `std` class. The `std` class and its method names are case-insensitive, following PHP class/method rules; `Type::*` type constants remain case-sensitive.
 
-## any($value)
+## std::any([$value])
 
-`any()` downgrades the compile-time type of an expression to a dynamic type. After downgrading, the variable can receive any PHP value, but the compiler no longer generates native type, typed object, or Native Call optimizations for it.
+`std::any()` downgrades the compile-time type of an expression to a dynamic type. After downgrading, the variable can receive any PHP value, but the compiler no longer generates native type, typed object, or Native Call optimizations for it.
 
-`any()` is an ordinary value expression and can be placed in any position that requires a value. For example:
+The argument is optional. Calling `std::any()` without an argument creates a dynamic value initialized to `null`; this is useful when a variable needs dynamic storage before its real value is known.
+
+`std::any()` is an ordinary value expression and can be placed in any position that requires a value. For example:
 
 ```php
 function identity(mixed $value): mixed {
-    return any($value);
+    return std::any($value);
 }
 
 function main(): void {
-    $values = [any(1), any("two")];
-    var_dump(any(3) + 1);
-    var_dump(identity(any($values[0])));
+    $values = [std::any(1), std::any("two")];
+    var_dump(std::any(3) + 1);
+    var_dump(identity(std::any($values[0])));
 }
 ```
 
 ```php
 function main(): void {
-    $value = any(10);
+    $value = std::any(10);
 
     $value = "string";
     var_dump($value);
 }
 ```
 
-`any()` is often used in scenarios where branches may produce different types:
+`std::any()` is often used in scenarios where branches may produce different types:
 
 ```php
 class FileLogger {}
@@ -73,9 +75,9 @@ class NullLogger {}
 
 function create_logger(bool $debug) {
     if ($debug) {
-        $logger = any(new FileLogger());
+        $logger = std::any(new FileLogger());
     } else {
-        $logger = any(new NullLogger());
+        $logger = std::any(new NullLogger());
     }
 
     return $logger;
@@ -86,31 +88,65 @@ It can also be used to preserve PHP dynamic operation semantics:
 
 ```php
 function main(): void {
-    $a = any(10);
+    $a = std::any(10);
     $b = $a / 3;
 
     var_dump($b); // float(3.333333...)
 }
 ```
 
-## refval($value)
+## std::object($value, ClassName::class)
 
-`refval()` is used to pass references explicitly. It is mainly used in scenarios where the compiler cannot know at compile time whether a parameter is a reference, such as dynamic calls, closure calls, and variable function calls.
-
-The argument to `refval()` must be an lvalue that can be referenced: a variable, array element, or object property. Literals, function return values, arithmetic expressions, and other temporary values cannot be passed.
-
-`refval()` can only be used as an argument to a single function or method call:
+`std::object()` is the function form of `$value->toObject(ClassName::class)`.
+It checks that `$value` is an instance of the requested class and restores that
+concrete class information for subsequent compilation:
 
 ```php
-$callback(refval($value));
+$user = std::object($payload['user'], User::class);
+echo $user->getName();
+```
+
+The class argument must be resolvable at compile time. Concrete class names,
+string class-name literals, `self::class`, and `parent::class` are supported.
+Subclass objects pass a parent-class or interface check.
+
+Unlike the TypePHP-only keyword-method syntax, the static call can be made
+portable to ordinary Zend PHP by providing a compatibility implementation on
+the Zend PHP execution path:
+
+```php
+class std {
+    public static function object(mixed $value, string $class): object {
+        if (!$value instanceof $class) {
+            throw new TypeError("Expected an instance of {$class}");
+        }
+        return $value;
+    }
+}
+```
+
+The same application code can then call `std::object()` under both Zend PHP and
+TypePHP. TypePHP lowers the call directly to its checked object conversion and
+does not perform a runtime static-method dispatch.
+
+## std::ref($value)
+
+`std::ref()` is used to pass references explicitly. It is mainly used in scenarios where the compiler cannot know at compile time whether a parameter is a reference, such as dynamic calls, closure calls, and variable function calls.
+
+The argument to `std::ref()` must be an lvalue that can be referenced: a variable, array element, or object property. Literals, function return values, arithmetic expressions, and other temporary values cannot be passed.
+
+`std::ref()` can only be used as an argument to a single function or method call:
+
+```php
+$callback(std::ref($value));
 ```
 
 Do not use it as an ordinary value expression; for example, the following usages are not supported:
 
 ```php
-return refval($value);
-$list = [refval($value)];
-$sum = refval($value) + 1;
+return std::ref($value);
+$list = [std::ref($value)];
+$sum = std::ref($value) + 1;
 ```
 
 Variable references:
@@ -122,7 +158,7 @@ function main(): void {
     };
 
     $name = "php";
-    $fn(refval($name));
+    $fn(std::ref($name));
 
     var_dump($name); // string(12) "php compiler"
 }
@@ -137,7 +173,7 @@ function main(): void {
     };
 
     $data = ["name" => "origin"];
-    $fn(refval($data["name"]));
+    $fn(std::ref($data["name"]));
 
     var_dump($data["name"]); // string(7) "changed"
 }
@@ -156,13 +192,13 @@ function main(): void {
     };
 
     $box = new Box();
-    $fn(refval($box->value));
+    $fn(std::ref($box->value));
 
     var_dump($box->value); // string(7) "changed"
 }
 ```
 
-When the parameter information of static functions and built-in functions is known at compile time, the compiler handles reference parameters automatically, and `refval()` is not needed additionally:
+When the parameter information of static functions and built-in functions is known at compile time, the compiler handles reference parameters automatically, and `std::ref()` is not needed additionally:
 
 ```php
 function main(): void {
@@ -171,85 +207,20 @@ function main(): void {
 }
 ```
 
-## objval($value, $className)
+For native `T&` references, local aliases, dynamic-call write-back, and escape restrictions, see [Strongly Typed References](strong-references.md).
 
-`objval()` restores the declared object type from a `mixed` / `any` value. It lets the compiler know that the subsequent expression should be treated as the specified class, parent class, abstract class, or interface, and inserts an object type check at runtime.
+## std::expected($condition) and std::unexpected($condition)
 
-The second argument only supports a string literal or `ClassName::class`. A variable cannot be used to pass the class name dynamically.
+`std::expected()` and `std::unexpected()` provide hints about branch probability to the compiler:
 
-`objval()` is an ordinary value expression. Besides assignment, it can also be used directly in arguments, return values, array elements, or a method call immediately following:
-
-```php
-function display_name(mixed $value): string {
-    return objval($value, User::class)->name();
-}
-```
-
-```php
-class User {
-    public function name(): string {
-        return "rango";
-    }
-}
-
-function main(): void {
-    $data = ["user" => new User()];
-
-    $user = objval($data["user"], User::class);
-    var_dump($user->name());
-}
-```
-
-Using a string class name:
-
-```php
-class Service {
-    public function run(): string {
-        return "ok";
-    }
-}
-
-function main(): void {
-    $value = any(new Service());
-
-    $service = objval($value, "Service");
-    var_dump($service->run());
-}
-```
-
-`objval()` checks the object type using the `is-a` relationship, so a subclass object can be used as a parent class, abstract class, or interface:
-
-```php
-interface Logger {
-    public function write(string $message): void;
-}
-
-class FileLogger implements Logger {
-    public function write(string $message): void {
-        echo $message;
-    }
-}
-
-function main(): void {
-    $value = any(new FileLogger());
-    $logger = objval($value, Logger::class);
-
-    $logger->write("hello");
-}
-```
-
-## expected($condition) and unexpected($condition)
-
-`expected()` and `unexpected()` provide hints about branch probability to the compiler:
-
-- `expected($condition)` indicates that the condition is true in most cases.
-- `unexpected($condition)` indicates that the condition is false in most cases.
+- `std::expected($condition)` indicates that the condition is true in most cases.
+- `std::unexpected($condition)` indicates that the condition is false in most cases.
 
 For example, marking the normal processing path as the common branch:
 
 ```php
 function handle_request(bool $ready): int {
-    if (expected($ready)) {
+    if (std::expected($ready)) {
         // the vast majority of requests enter this branch
         return 1;
     }
@@ -262,7 +233,7 @@ Marking errors or other rare cases as the uncommon branch:
 
 ```php
 function normalize_id(int $id): int {
-    if (unexpected($id < 0)) {
+    if (std::unexpected($id < 0)) {
         return 0;
     }
 
@@ -274,7 +245,7 @@ It can also be used in loop conditions:
 
 ```php
 function countdown(int $remaining): void {
-    while (expected($remaining > 0)) {
+    while (std::expected($remaining > 0)) {
         echo $remaining, "\n";
         $remaining--;
     }
@@ -287,7 +258,7 @@ Branch prediction hints should be used based on actual runtime behavior. If you 
 
 ```php
 if ($condition) {
-    // no need to forcibly add expected() or unexpected()
+    // no need to forcibly add std::expected() or std::unexpected()
 }
 ```
 
@@ -311,7 +282,7 @@ Converting from a dynamic value:
 
 ```php
 function main(): void {
-    $value = any("123");
+    $value = std::any("123");
     $id = std::int($value);
 
     var_dump($id + 1);
@@ -335,7 +306,7 @@ Converting from a dynamic value:
 
 ```php
 function main(): void {
-    $value = any("3.14");
+    $value = std::any("3.14");
     $pi = std::float($value);
 
     var_dump($pi);
@@ -360,7 +331,7 @@ Converting from a dynamic value:
 
 ```php
 function main(): void {
-    $value = any("");
+    $value = std::any("");
     $ok = std::bool($value);
 
     var_dump($ok); // bool(false)
@@ -595,13 +566,13 @@ function main(): void {
 }
 ```
 
-## std::ordered_map($keyType, $valueType)
+## std::orderedMap($keyType, $valueType)
 
-`std::ordered_map()` creates an ordered StdOrderedMap container, corresponding to C++ `std::map` underneath. The key type restriction is the same as `std::map()`.
+`std::orderedMap()` creates an ordered StdOrderedMap container, corresponding to C++ `std::map` underneath. The key type restriction is the same as `std::map()`.
 
 ```php
 function main(): void {
-    $items = std::ordered_map(Type::String, Type::Int);
+    $items = std::orderedMap(Type::String, Type::Int);
 
     $items["b"] = 2;
     $items["a"] = 1;
@@ -616,7 +587,7 @@ High-precision numeric values as the value:
 
 ```php
 function main(): void {
-    $balances = std::ordered_map(Type::Int, Type::Decimal);
+    $balances = std::orderedMap(Type::Int, Type::Decimal);
 
     $balances[1] = std::decimal("19.99");
     $balances[2] = std::decimal("100.50");
@@ -646,7 +617,7 @@ The `$type`, `$keyType`, and `$valueType` of Std containers are not ordinary run
 
 ## Usage Restrictions
 
-`std::array()`, `std::vector()`, `std::map()`, and `std::ordered_map()` are container construction entry points that can only be used for the first assignment of a variable, and must be located in the top-level scope of a function:
+`std::array()`, `std::vector()`, `std::map()`, and `std::orderedMap()` are container construction entry points that can only be used for the first assignment of a variable, and must be located in the top-level scope of a function:
 
 ```php
 function main(): void {

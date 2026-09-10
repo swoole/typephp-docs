@@ -113,6 +113,11 @@ When an extension depends on other PHP modules such as `pdo_mysql` or `curl`, yo
 
 Linux `bin` mode requires `libphp.so` or `libphp.a`. The `tpc` binary itself also depends on `libphp.so` and `libphpx.so`, so it cannot start the installer on its own when the libraries are missing. Composer users should prepare these libraries automatically via `vendor/bin/tpc.php`; see [Composer Installation](composer.md). `ext` mode does not trigger the Embed PHP installer.
 
+Use `--nano` to produce a native program that does not depend on `libphp` and
+does not contain the Zend VM. Nano adds the PHP Nano and PHPX C/C++ sources
+directly to the application build. See [Nano Native Compilation](nano.md) for
+installation, platform differences, and the capability boundary.
+
 ## Inspecting the generated code
 
 `--dry` only generates the C++ files without invoking the C++ compiler and linker:

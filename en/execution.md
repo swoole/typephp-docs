@@ -40,13 +40,12 @@ At runtime they execute directly as machine instructions, **completely bypassing
 
 | Type level | Enablement | C++ type | Example |
 |---------|---------|---------|------|
-| Native type | `use native_types` | `php::Int`, `php::Float`, `php::Bool` | `int64_t`, `double`, `bool` |
-| Dynamic type | Default / undeclared type | `php::Var` (`zval` wrapper) | `php::Array`, `php::String`, `php::Object` |
+| Native type | Default | `php::Int`, `php::Float`, `php::Bool` | `int64_t`, `double`, `bool` |
+| Dynamic type | `std::any()` or an indeterminate type | `php::Var` (`zval` wrapper) | Dynamic PHP values |
 
-After enabling `use native_types`, the `int`/`float`/`bool` types map directly to C++ native types (`int64_t`, `double`, `bool`), eliminating the `zval` boxing/unboxing and type-tag checking overhead. For scenarios where the type cannot be determined, `php::Var` is used to preserve dynamism.
+Inferred `int`/`float`/`bool` values map directly to C++ native types (`int64_t`, `double`, `bool`) by default. Use `std::any()` for a dynamic value, or `use varint_types` when inferred integers across a file need Zend integer widening semantics.
 
 ```php
-use native_types;
 
 function calculate(int $a, int $b): int {
     return $a * $b + 10;   // → Direct C++ integer arithmetic, no zval overhead
@@ -598,7 +597,7 @@ graph LR
 |------|--------|-----------|
 | Translation approach | Interprets Opcode line by line per request | Translates to machine code once at compile time |
 | Runtime dependency | Requires PHP interpreter | Standalone binary, depends only on phpx runtime library |
-| Type system | Dynamic typing, zval boxing | Static inference + `use native_types` native C++ types |
+| Type system | Dynamic typing, zval boxing | Static inference + native C++ scalar types by default |
 | Function calls | `zend_call_function()` dynamic dispatch | Direct C++ function calls (Native Call) |
 | Dynamic features | Full support for `eval`, `call_user_func`, etc. | Partial support (restricted dynamic calls) |
 | Performance | Baseline (1x) | Greatly improved (tens to hundreds of times) |

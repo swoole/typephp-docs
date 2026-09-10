@@ -129,7 +129,7 @@ Once the type is downgraded, the compiler does not automatically restore the ori
 
 ### 3.2 toRef
 
-`toRef()` explicitly obtains a reference, equivalent to TypePHP's `refval()`:
+`toRef()` explicitly obtains a reference, equivalent to TypePHP's `std::ref()`:
 
 ```php
 $callback($value->toRef());
@@ -156,6 +156,8 @@ Temporary computation results usually cannot obtain a reference:
 ```
 
 `toRef()` takes no arguments.
+
+For statically resolved native references, local aliases, and dynamic-call escape restrictions, see [Strongly Typed References](strong-references.md).
 
 ## 4. Object Type Continuation
 
@@ -196,6 +198,8 @@ echo $container['user']
 ```
 
 Object conversion with a class name checks whether the actual object matches the target class or its inheritance relationship. A type error is thrown when the types do not match.
+
+For code that must also run on Zend PHP, use the equivalent `std::object($value, ClassName::class)` form and provide a Zend-side polyfill.
 
 For details on object type continuation, see [Object Type Conversion](object-type-conversion.md).
 

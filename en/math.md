@@ -26,20 +26,40 @@ The TypePHP compiler provides three high-precision types, based on mature C/C++ 
 | Decimal | libmpdec | Decimal number, about 50 significant digits, no binary floating-point error |
 | BigFloat | MPFR (`libmpfr`) | Arbitrary-precision floating-point number, adjustable precision |
 
+### High-precision backend in Nano mode
+
+When compiling with `--nano`, `BigInt`, `Decimal`, and `BigFloat` are all
+implemented by the `libbcmath` bundled in the PHP sources, with no dependency
+on GMP, mpdecimal, or MPFR. Their public APIs and common arithmetic semantics
+remain available, but the Nano backend is not a bit-for-bit replacement for
+those high-precision libraries:
+
+| Type | Normal mode | Nano mode | Consistency boundary |
+|------|-------------|-----------|----------------------|
+| BigInt | GMP arbitrary-precision integer | libbcmath integer arithmetic | Integer results remain exact; implementation and performance may differ |
+| Decimal | mpdecimal with about 50 significant digits | libbcmath with up to 50 decimal places | Fixed decimal places and significant-digit precision are different models, so boundary rounding may differ |
+| BigFloat | MPFR with 256-bit binary precision and a floating exponent | libbcmath with up to 64 decimal places | Nano is a fixed-point decimal fallback and does not have MPFR's exponent range or rounding model |
+
+> **Important:** Normal and Nano modes do not guarantee digit-for-digit
+> identical high-precision results. Digits beyond Nano's decimal scale may be
+> truncated or rounded differently; extreme scientific-notation values,
+> result formatting, and performance may also differ. Code that needs the same
+> business result in both modes must constrain its input range and decimal
+> places explicitly and apply an explicit application-level rounding rule. Do
+> not treat Nano BigFloat as an MPFR replacement when MPFR's exponent range or
+> strictly reproducible results are required.
+
 ---
 
 ## 2. Quick Start
 
 Prerequisites for using high-precision types:
 
-1. Declare `declare(strict_types=1)` at the top of the file
-2. Import native type declarations with `use native_types`
-3. The corresponding C++ libraries are installed on the system (`libgmp-dev`, `libmpdec-dev`, `libmpfr-dev`)
+1. Normal mode requires the corresponding C++ libraries (`libgmp-dev`, `libmpdec-dev`, `libmpfr-dev`); Nano mode does not require these external libraries
 
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // Your high-precision computation code
@@ -58,7 +78,7 @@ Compile and run:
 ./my_program
 ```
 
-> **Tip**: Like all native_types, Big* types can only be used in TypePHP compile mode and cannot run in a normal PHP interpreter. The TypePHP compiler evaluates functions such as `std::bigInt()` at compile time and directly generates C++ code.
+> **Tip**: Big* types can only be used in TypePHP compile mode and cannot run in a normal PHP interpreter. The compiler recognizes constructors such as `std::bigInt()` at compile time and directly generates C++ code.
 
 ---
 
@@ -117,10 +137,9 @@ $g = std::bigFloat("3.14159265358979323846");             // from string (exact)
 
 ### 4.2 Type Annotation
 
-Under `use native_types`, Big* type variables automatically get native C++ storage types:
+Big* constructor expressions automatically receive their corresponding fixed C++ storage types:
 
 ```php
-use native_types;
 
 // The compiler automatically infers the type as php::BigInt / php::Decimal / php::BigFloat
 $a = std::bigInt(100);         // → C++: php::Variant(new BigInt(100))
@@ -587,9 +606,9 @@ $c = $a + std::bigFloat($b->toString());  // ✅
 
 Big* types are a proprietary feature of the TypePHP compiler, relying on compile-time code generation and C++ underlying libraries. The source code cannot be directly interpreted and executed by the `php` command.
 
-### 12.7 Enable `use native_types`
+### 12.7 Keep Big* Values Statically Typed
 
-Forgetting to add `use native_types` will cause Big* variables to be treated as Var (generic type), losing most of the performance advantages of native types.
+Big* constructors infer their fixed high-precision type automatically. Do not wrap them in `std::any()` unless dynamic storage is intentionally required, because doing so gives up their static type information.
 
 ---
 
@@ -600,7 +619,6 @@ Forgetting to add `use native_types` will cause Big* variables to be treated as 
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 /**
  * Compute the factorial of n, supporting arbitrarily large results
@@ -627,7 +645,6 @@ function main(): void {
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // use Decimal to represent amounts exactly
@@ -663,7 +680,6 @@ total: 64.7676
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // use BigFloat for high-precision math operations
@@ -692,7 +708,6 @@ function main(): void {
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // BigInt — large integer operations

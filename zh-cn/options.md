@@ -146,6 +146,8 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 
 常用目标三元组示例：
   - `aarch64-linux-gnu` — ARM64 Linux
+  - `aarch64-linux-android24` — Android API 24+，arm64-v8a
+  - `arm64-apple-ios15.0` — iPhoneOS arm64，iOS 15+
   - `x86_64-w64-mingw32` — Windows x86-64 (MinGW)
   - `arm-linux-gnueabihf` — ARM32 Linux (hard float)
 
@@ -158,6 +160,23 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 ```
 
 > **注意**：GCC 交叉编译通常还需要安装对应的交叉编译工具链（如 `g++-aarch64-linux-gnu`）。Clang 自带交叉编译支持，只需指定 `--target` 即可。可通过 YAML 配置 `cpp-compiler` 指定交叉编译器路径。
+
+Android 与 iPhoneOS 还需要对应平台 SDK、匹配的 PHPX SDK、sysroot 与链接参数，详见 [Android、iOS 与 macOS 原生应用](mobile-native.md)。
+
+### `--nano` — 编译无 ZendVM 的原生程序
+
+在 Linux、macOS、iOS 和 Android 目标上，将 PHP Nano、PHPX 与生成代码作为同一
+个 C11/C++17 工程编译，最终程序不链接 `libphp`。Windows 仍链接完整的 PHP/PHPX
+DLL，但会应用同样的 Nano 语言与能力限制。
+
+```shell
+vendor/bin/tpc.php --nano hello.php
+./hello
+```
+
+非 Windows 的 Nano 当前只支持 `bin` 模式，不能与 `--full-static`、`-l` 或 `-L`
+组合使用，C++ 标准必须为 C++17。依赖安装、受支持 API、静态扩展和 WASI 用法见
+[Nano 原生编译](nano.md)。
 
 ### `--wasm[=profile]` — 编译到 WASI 0.2
 

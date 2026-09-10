@@ -129,7 +129,7 @@ $value->toAny('arg');  // 编译错误
 
 ### 3.2 toRef
 
-`toRef()` 显式取得引用，等价于 TypePHP 的 `refval()`：
+`toRef()` 显式取得引用，等价于 TypePHP 的 `std::ref()`：
 
 ```php
 $callback($value->toRef());
@@ -156,6 +156,8 @@ $object->property->toRef();
 ```
 
 `toRef()` 不接受参数。
+
+静态调用的原生引用、局部别名与动态调用的引用逃逸限制详见[强类型引用](strong-references.md)。
 
 ## 4. 对象类型接续
 
@@ -196,6 +198,8 @@ echo $container['user']
 ```
 
 带类名的对象转换会检查实际对象是否符合目标类或其继承关系。类型不匹配时抛出类型错误。
+
+代码还需要运行于 Zend PHP 时，可使用等价的 `std::object($value, ClassName::class)` 形式，并在 Zend 侧提供 polyfill。
 
 对象类型接续的详细说明见[对象类型转换](object-type-conversion.md)。
 

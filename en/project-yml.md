@@ -35,7 +35,6 @@ sources:
 ignore:
   - src/tests/
   - src/vendor/
-  - ext-gd          # ignore a specific extension dependency
 
 # Build directory (relative paths are resolved relative to the directory containing this YAML file)
 build-dir: build/out
@@ -124,7 +123,7 @@ resource:
 | `no-console` | `boolean` | Hides the console window, equivalent to `--no-console`. Windows only |
 | `sanitize` | `string` | Enables a sanitizer, equivalent to `--sanitize`, e.g. `address`, `undefined` |
 | `sources` | `array` | List of source files or directories. Supports `.php`, `.cpp`, `.c`, `.s`, `.m`, `.mm`. Can use `if` + `path` to load conditionally by PHP version or operating system |
-| `ignore` | `array` | Paths or extension names to ignore. Paths support files/directories; the `ext-<name>` format is used to ignore a specific extension dependency |
+| `ignore` | `array` | Files or directories to exclude. Each entry must be an explicit path — **wildcards and regular expressions are not supported**. A directory entry excludes everything below it; entries that do not exist are silently skipped |
 | `build-dir` | `string` | Build directory, equivalent to `--build-dir`. Supports relative and absolute paths; relative paths are resolved relative to the directory containing the current YAML file |
 | `dry` | `boolean` | Dry-run mode, equivalent to `--dry` |
 | `cxx-std` | `string` | C++ standard version, equivalent to `--cxx-std` |

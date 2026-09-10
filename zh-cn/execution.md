@@ -40,13 +40,12 @@ graph TD
 
 | 类型层次 | 启用方式 | C++ 类型 | 示例 |
 |---------|---------|---------|------|
-| 原生类型 | `use native_types` | `php::Int`、`php::Float`、`php::Bool` | `int64_t`、`double`、`bool` |
-| 动态类型 | 默认 / 未声明类型 | `php::Var`（`zval` 包装） | `php::Array`、`php::String`、`php::Object` |
+| 原生类型 | 默认启用 | `php::Int`、`php::Float`、`php::Bool` | `int64_t`、`double`、`bool` |
+| 动态类型 | `std::any()` 或类型无法确定 | `php::Var`（`zval` 包装） | 动态 PHP 值 |
 
-启用 `use native_types` 后，`int`/`float`/`bool` 类型直接映射为 C++ 原生类型（`int64_t`、`double`、`bool`），消除 `zval` 的装箱/拆箱和类型标记检查开销。对于无法确定类型的场景，使用 `php::Var` 保留动态性。
+TypePHP 默认把推断出的 `int`/`float`/`bool` 直接映射为 C++ 原生类型（`int64_t`、`double`、`bool`）。单个值需要动态语义时使用 `std::any()`；整个文件的推断整数需要 Zend 整数扩展语义时使用 `use varint_types`。
 
 ```php
-use native_types;
 
 function calculate(int $a, int $b): int {
     return $a * $b + 10;   // → 直接 C++ 整数运算，无 zval 开销
@@ -598,7 +597,7 @@ graph LR
 |------|--------|-----------|
 | 翻译方式 | 每请求逐行解释 Opcode | 编译期一次性翻译为机器码 |
 | 运行时依赖 | 需要 PHP 解释器 | 独立二进制，仅依赖 phpx 运行时库 |
-| 类型系统 | 动态类型，zval 装箱 | 静态推断 + `use native_types` 原生 C++ 类型 |
+| 类型系统 | 动态类型，zval 装箱 | 静态推断 + 默认原生 C++ 标量类型 |
 | 函数调用 | `zend_call_function()` 动态分发 | 直接 C++ 函数调用（Native Call） |
 | 动态特性 | 完整支持 `eval`、`call_user_func` 等 | 部分支持（受限的动态调用） |
 | 性能 | 基准（1x） | 大幅提升（数十倍 ~ 百倍） |

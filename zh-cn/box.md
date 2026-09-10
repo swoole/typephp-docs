@@ -149,7 +149,6 @@ function tetris_is_game_over(mixed $game): bool {}
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 class TetrisGame
 {

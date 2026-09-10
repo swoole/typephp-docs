@@ -6,12 +6,11 @@
 2. 不支持 `extract` 函数，无法运行时创建局部变量
 3. 不支持参数数量与声明不一致的函数调用，不能使用 `func_get_args()` 函数隐式接受额外参数，需要显式声明为变长参数
 4. 不支持对 `Property Hook` 属性取引用
-5. 不支持动态调用中自动推断参数为引用，需要显式使用 `refval()` 函数将调用参数转为引用
-6. 不支持闭包和箭头函数的引用参数及按引用返回
-7. 不支持引用类型的变长参数，例如 `function foo(&...$args) {}`
-8. 动态代码不能 `use` 在 静态编译的 `Trait`，`Trait` 在编译期与 `Class` 组合，不支持运行时动态绑定
-9. 不支持 `Closure::call()/bind()/bindTo()`，`Closure` 的 `$this` 与类作用域在编译期确定，不允许在运行时重新绑定
-10. 不支持 `Lazy Object API`，如 `ReflectionClass::newLazyGhost()/newLazyProxy()`， `PHP` 禁止把内置类转为 `Lazy Object`
+5. 不支持动态调用中自动推断参数为引用，需要显式使用 `std::ref()` 函数将调用参数转为引用
+6. 不支持闭包和箭头函数按引用返回。闭包支持固定引用参数，但动态调用时必须在调用处使用 `std::ref()` 或 `toRef()`
+7. 动态代码不能 `use` 在静态编译的 `Trait`，`Trait` 在编译期与 `Class` 组合，不支持运行时动态绑定
+8. 不支持 `Closure::call()/bind()/bindTo()`，`Closure` 的 `$this` 与类作用域在编译期确定，不允许在运行时重新绑定
+9. 不支持 `Lazy Object API`，如 `ReflectionClass::newLazyGhost()/newLazyProxy()`，`PHP` 禁止把内置类转为 `Lazy Object`
 
 ## 已支持的新语法
 
@@ -157,7 +156,7 @@ class ChildBox extends ParentBox {
 ## 在动态调用中使用引用
 
 `TypePHP`无法在编译阶段确定动态调用的参数类型，因此无法自动推断参数是否为引用。原生调用或内置函数调用，可以自动推断参数类型，转为引用，无需用户显式指定。
-例如 `Closure` 闭包函数的参数是引用类型，在运行时才能确定，在 `TypePHP` 编译器中无法自动判断，需要显式使用 `refval()` 函数或等价关键词方法 `toRef()` 转为引用
+例如 `Closure` 闭包函数的参数是引用类型，在运行时才能确定，在 `TypePHP` 编译器中无法自动判断，需要显式使用 `std::ref()` 函数或等价关键词方法 `toRef()` 转为引用
 
 ```php
 // 运行时才能得到函数的参数和返回值
@@ -165,12 +164,12 @@ $fn = getClosure();
 // 编译器无法确定参数应该使用值还是引用，默认使用值传递
 $fn($a, $b, $c);
 // $c 将显式地使用引用传递，而不是值
-$fn($a, $b, refval($c));
+$fn($a, $b, std::ref($c));
 // 等价写法：toRef() 是 TypePHP 专有关键词方法
 $fn($a, $b, $c->toRef());
 ```
 
-闭包和箭头函数目前也不能声明引用参数或按引用返回。此限制与 `use (&$value)` 引用捕获不同；引用捕获已经支持。
+闭包支持固定引用参数，但不能按引用返回。动态值支持 `use (&$value)` 引用捕获；固定原生引用则遵循更严格的不可逃逸规则。详见[强类型引用](strong-references.md)。
 
 ## 不支持闭包重绑定
 
@@ -233,7 +232,7 @@ echo $reader(new Target());
 因此，如果需要显式使用空字符串作为键，应直接使用 `$array['']` 而非 `$array[null]`。
 
 ## 严格模式
-TypePHP 编译器不允许手动设置当前文件为非严格模式：`declare(strict_types=0)`，这会导致编译错误：
+TypePHP 始终使用严格类型。为兼容 PHP 源码仍接受 `declare(strict_types=1)`，但它已是冗余声明；设置 `declare(strict_types=0)` 会导致编译错误：
 
 ```bash
 Fatal error: declare(strict_types=0) is not allowed, only strict_types=1 is supported

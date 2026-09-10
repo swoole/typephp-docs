@@ -91,7 +91,7 @@ final class RequestContext
 以下类型不能作为原生类属性：
 
 - `Box`；
-- `std::array`、`std::vector`、`std::map`、`std::ordered_map` 等 Std 容器；
+- `std::array`、`std::vector`、`std::map`、`std::orderedMap` 等 Std 容器；
 - PHP 属性声明本身不允许的 `void`、`never`、`callable` 等类型；
 - `readonly` 属性和 readonly class。
 

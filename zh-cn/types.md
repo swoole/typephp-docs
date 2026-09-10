@@ -41,6 +41,8 @@ var_dump($value); // string(4) "text"
 
 `declare(strict_types=1)` 只关闭函数调用边界上的部分标量隐式转换，使不匹配的参数或返回值抛出 `TypeError`；它不会让局部变量或参数在函数体内变成固定类型，因此也不会把 ZendPHP 转换成静态强类型语言。
 
+TypePHP 始终以严格模式编译。`declare(strict_types=1)` 仍可使用但已经冗余，`declare(strict_types=0)` 会被拒绝。TypePHP 的固定局部类型来自编译期推断与存储规则，而不是 PHP 的该项声明。
+
 在 PHP 的可变存储中，真正持续携带类型约束的是声明了类型的对象属性，包括静态属性。属性值可以修改，但属性声明的类型不能在运行期间改变；每次写入都会由 ZendVM 检查：
 
 ```php
@@ -122,11 +124,10 @@ TypePHP 编译器支持以下 C++ 存储类型（`php::*`）：
 
 ## 2. 原生类型
 
-在 `use native_types` 声明下，编译器将 `int`、`float`、`bool` 映射为原生 C++ 类型，消除 `zval` 包装开销。
+编译器默认把推断出的 `int`、`float`、`bool` 局部变量映射为原生 C++ 类型，消除 `zval` 包装开销。原生标量的存储类型固定，后续不会被静默提升为 `php::Var`。
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function sum(int $n): int {
     $total = 0;        // php::Int
@@ -138,7 +139,7 @@ function sum(int $n): int {
 }
 ```
 
-不使用 `use native_types` 时，所有变量默认为 `php::Var`（动态类型）。
+单个表达式需要动态存储时使用 `std::any($value)`。整个文件的推断整数需要 Zend 整数扩展行为时使用 `use varint_types`；该指令不改变推断出的 `float` 或 `bool` 存储。
 
 ### 2.1 原生类型与 PHP 类型声明映射
 
@@ -167,7 +168,6 @@ TypePHP 编译器提供三种高精度数值类型，详见 [math.md](math.md)�
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // 通过 std:: 工厂函数构造
 $a = std::bigInt("12345678901234567890");
@@ -205,7 +205,6 @@ TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安�
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // std::vector — 动态数组
 $v = std::vector(Type::Int);
@@ -216,8 +215,8 @@ $v[] = 20;
 $a = std::array(Type::Float, 5);
 $a[0] = 3.14;
 
-// std::ordered_map — 有序映射
-$m = std::ordered_map(Type::String, Type::Int);
+// std::orderedMap — 有序映射
+$m = std::orderedMap(Type::String, Type::Int);
 $m["key"] = 100;
 
 // std::map — 哈希映射
@@ -258,7 +257,7 @@ $u[1] = new User(1);
 | 超长整数（≥19 位） | 自动识别为 `php::BigInt` |
 | 高精度浮点（≥16 位有效数字） | 自动识别为 `php::Decimal` |
 | 布尔字面量 `true` / `false` | `php::Bool` |
-| 字符串字面量 `"hello"` | `php::Str`（启用 `native_types` 时） |
+| 字符串字面量 `"hello"` | `php::Str` |
 | 数组字面量 `[1, 2]` | `php::Array` |
 
 ### 5.2 类型转换表达式
@@ -332,77 +331,28 @@ $g = std::bigInt($a->toString());    // Decimal → String → BigInt
 $h = std::decimal($a->toString());   // BigInt → String → Decimal
 ```
 
-### 6.3 类型接续（从 Var 恢复类型）
+### 6.3 类型擦除
 
-从数组取出元素或调用返回 `any` 类型的函数后，编译器丢失类型信息。可使用以下方式完成类型接续：
-
-```php
-// 对象类型接续
-$user = $array['user']->toObject(User::class);
-echo $user->greet();  // 编译器可生成 Native Call
-
-// Stream 类型接续
-$sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
-$client = $sockets[0]->toStream();
-$client->write("hello");
-
-// 基础类型转换语法
-$v = (int) $array['count'];       // → php::Int
-$v = (float) $array['price'];     // → php::Float
-$v = (bool) $array['active'];     // → php::Bool
-$v = (string) $array['name'];     // → php::Str
-$v = (array) $array['items'];     // → php::Array
-
-// 基础类型转换函数
-$v = intval($array['count']);     // → php::Int
-$v = floatval($array['price']);   // → php::Float
-$v = boolval($array['active']);   // → php::Bool
-$v = strval($array['name']);      // → php::Str
-
-// 显式降级为动态类型
-$v = $array['mixed']->toAny();    // → php::Var，等价于 any($array['mixed'])
-
-// 显式转为引用
-$ref = $array['value']->toRef();  // → php::Ref，等价于 refval($array['value'])
-```
-
-> **注意**：`(object)` 转换得到的是 `php::Object`，**不包含具体的类信息**，编译器无法对其方法进行 Native Call 优化。请始终使用 `toObject(ClassName::class)` 重建对象类型。
-
-### 6.4 类型丢弃
-
-某些场景下，一个变量在不同条件分支中需要持有不同类型的值（如不同类的对象），此时编译器的静态类型推断会成为障碍——编译器根据第一次赋值推断类型，后续赋值不同类型会报错。使用 `any()` 或等价关键词方法 `toAny()` 可以将类型标注为 `php::Var`，放弃编译期类型跟踪，交由运行时动态处理。
+`std::any($value)` 与 `$value->toAny()` 会把确定类型擦除为动态 `php::Var` 存储。擦除后的值可以改变 PHP 类型并走 Zend 动态分发，但不再应用固定类型与 typed object 优化。
 
 ```php
-class Foo1 {
-    public function run() {
-        var_dump(__METHOD__);
-    }
-}
-
-class Foo2 {
-    public function run() {
-        var_dump(__METHOD__);
-    }
-}
-
-function main() {
-    $rand = random_int(0, 10000);
-    if ($rand % 2) {
-        $o = any(new Foo1());
-    } else {
-        $o = any(new Foo2());
-    }
-    if (method_exists($o, 'run')) {
-        $o->run();
-    }
-}
+$value = std::any(new User());
+$value = "dynamic";
 ```
 
-在此例中：
-- 去掉 `any()`，编译器会将 `$o` 的类型锁定为 `Foo1`，`else` 分支中赋值 `Foo2` 对象会报类型冲突错误
-- 加上 `any()` 后，`$o` 被标注为 `php::Var`，可接收任意类型的值，方法调用走动态分发
+global/static 动态槽位与普通 PHP 数组元素也是常见的类型擦除边界。它们的存储规则和限制详见[类型擦除与恢复](type-erasure.md)。
 
-`any()` 与 `toAny()` 只影响编译期类型推断，不会生成额外的运行时类型检查。需要注意：降级为 `php::Var` 后，编译器也不会再为该变量生成 typed object 的 Native Call 优化。
+### 6.4 类型恢复
+
+动态值通过显式转换或断言重新进入固定存储。标量类型使用类型转换、转换函数、`toInt()` 等方法；对象使用 `toObject(ClassName::class)` 恢复具体类信息，并执行运行时类型检查。
+
+```php
+$id = $payload['id']->toInt();
+$user = $payload['user']->toObject(User::class);
+$user->load($id);
+```
+
+恢复过程不会记忆被擦除前的类型，程序必须声明当前期望的类型。标量、对象、Stream、高精度类型和 Std 容器的完整恢复方式详见[类型擦除与恢复](type-erasure.md)。
 
 
 ## 7. 类型限制
@@ -458,7 +408,7 @@ PHP 的联合类型（`int|float`、`int|string` 等）、交叉类型（`A&B`�
 
 ### 7.7 Std 容器键类型限制
 
-`std::ordered_map` 和 `std::map` 的键类型仅支持：
+`std::orderedMap` 和 `std::map` 的键类型仅支持：
 - `Type::Int` — 整数键
 - `Type::String` / `Type::String` — 字符串键
 
@@ -468,9 +418,20 @@ PHP 的联合类型（`int|float`、`int|string` 等）、交叉类型（`A&B`�
 
 当 std 容器处于 `foreach` 循环中且启用锁定时，不能对其元素执行 `unset` 操作。
 
-### 7.9 原生类型变量不能 unset
+### 7.9 `unset()` 将固定类型局部变量恢复为初始状态
 
-原生类型变量（`php::Int`、`php::Float` 等）不能使用 `unset()`，因为它们在 C++ 中是栈上值类型。
+对固定类型局部变量调用 `unset()` 会释放当前值并恢复该类型的初始状态，不会让变量变成未定义，也不会改变类型。
+
+| 局部变量类型 | `unset()` 后的值 |
+|---|---|
+| `int` | `0` |
+| `float` | `0.0` |
+| `bool` | `false` |
+| `string` | 空字符串 |
+| `array` | 空数组 |
+| typed object | `null` |
+
+PHP 没有独立的“空对象”语义，因此 `null` 是对象的初始状态。typed object 局部变量也允许直接赋值为 `null`；之后赋入非空对象时，仍必须满足已确定的类约束。动态 `php::Var` 存储则保留普通 PHP 的未定义行为。
 
 ### 7.10 对象属性类型固定，固定值类型不能 unset 或改成 null
 
@@ -478,7 +439,6 @@ TypePHP 编译器要求对象属性始终保持声明时的类型，不能在运
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 class User {
     public int $id = 0;
@@ -507,11 +467,13 @@ class User {
 $user->id = null; // ✅ 类型声明中允许 null
 ```
 
-### 7.11 关闭原生类型以启用特定行为
+### 7.11 选择动态整数行为
 
-需要溢出检测、动态类型赋值等动态特性时，不应使用 `use native_types`，或使用 `any()` 将变量标注为 `php::Var`：
+单个值需要动态赋值或 Zend 运算语义时，使用 `std::any()`：
 
 ```php
-$a = any(10);        // $a 的类型为 php::Var，保留溢出检测能力
+$a = std::any(10);        // $a 的类型为 php::Var，保留溢出检测能力
 $b = $a / 3;         // 浮点除法，结果为 3.333...
 ```
+
+如果整个文件中推断出的整数都需要溢出转浮点与小数除法行为，声明 `use varint_types`；显式构造的 `std::int()` 值仍是固定原生整数。

@@ -64,7 +64,7 @@ class Bar {
 ## 6. Nullable、UnionType 与 IntersectionType
 由于 `Nullable`、`UnionType` 与 `IntersectionType` 类型在静态阶段无法展开为单一确定类型，编译器在处理时会将其视为 `any` 类型，无法进行更多性能优化。运行时 type check 仍会保留，避免绕过 PHP 类型约束。
 
-建议使用这些类型时，在逻辑链条中加入 `toObject()` 类型接续，使得编译器可以恢复具体对象类型并优化后续调用。如果希望继续保留动态行为，可使用 `toAny()` 或 `any()` 显式降级。
+建议使用这些类型时，在逻辑链条中加入 `toObject()` 类型接续，使得编译器可以恢复具体对象类型并优化后续调用。如果希望继续保留动态行为，可使用 `toAny()` 或 `std::any()` 显式降级。
 
 ```php
 function foo(): ?MyClass {
@@ -100,5 +100,77 @@ function main() {
         $o = $rs->toObject(MyClass::class);
         $o->someMethod();
     }
+}
+```
+
+## 7. 建议减少 `readonly` 与 Property Hooks 的使用
+
+`readonly` 与 Property Hooks 均为运行时实现，使用它们时编译器无法对属性访问做任何优化，且需要额外插入对象级钩子。密集访问场景下，相比普通属性会慢一个数量级以上。
+
+**替代 `readonly`**：使用 `private` 属性，它在类外同样不可访问，但保留完整的优化能力；需要对外暴露只读访问时再加 `#[Getter]`。
+
+```php
+class Config
+{
+    #[Getter]
+    private int $port;
+
+    public function total(int $n): int
+    {
+        $t = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $t += $this->port;   // 类内直接访问，不要用 getValue()
+        }
+        return $t;
+    }
+}
+```
+
+**替代 Property Hooks**：类内直接访问后备属性，把 Hook 留给对外接口。
+
+```php
+class Order
+{
+    public int $totalFen = 0;
+
+    public int $totalYuan {
+        get {
+            return intdiv($this->totalFen, 100);
+        }
+    }
+
+    public function sumFen(int $n): int
+    {
+        $t = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $t += $this->totalFen;   // 而不是 $this->totalYuan
+        }
+        return $t;
+    }
+}
+```
+
+> 把 Property Hook 改写成普通方法不会带来性能提升，两者都是函数调用；`#[Getter]` 生成的方法调用同理。真正的差别在于「属性访问」与「方法调用」。非高频路径可以正常使用这两个特性。
+
+## 8. 避免使用 `global` 变量
+
+`global` 变量的类型是 `var`。编译器无法证明其具体类型，对象方法调用因此退化为运行时按方法名查找，丢失 `Native Call` 优化，并需要额外的运行时类型检查。
+
+建议通过参数传递对象，并标注参数类型：
+
+```php
+function handle(User $user): void
+{
+    $user->save();   // 类型明确，生成原生方法调用
+}
+```
+
+而不是：
+
+```php
+function handle(): void
+{
+    global $user;
+    $user->save();   // $user 为 var 类型，退化为动态调用
 }
 ```

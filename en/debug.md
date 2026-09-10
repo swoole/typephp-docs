@@ -327,7 +327,7 @@ The TypePHP compiler may report errors during the translation stage (earlier tha
 Behavioral differences between AOT binaries and ZendPHP (not bugs, but inherent characteristics of AOT compilation):
 
 - **Type errors are hard errors** — ZendPHP implicitly converts types; the TypePHP compiler reports a Fatal Error directly
-- **Division behavior** — `$a / $b` in AOT behaves like C++: integer division results remain integers (unless `any()`)
+- **Division behavior** — `$a / $b` in AOT behaves like C++: integer division results remain integers (unless `std::any()`)
 - **String concatenation** — concatenating non-strings with strings requires explicit conversion; there is no automatic `toString()`
 - **Undefined variables** — ZendPHP emits a Warning, AOT reports a compilation error directly
 

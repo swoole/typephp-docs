@@ -8,7 +8,7 @@ TypePHP 编译器将 C++ 标准库容器封装为 Box 资源，通过 `php::Var`
 |------|---------|-----------|------|
 | 定长数组 | `php::StdArray<T, N>` | `std::array(type, size)` | 编译期固定大小，通过 Box 堆上分配 |
 | 动态数组 | `php::StdVector<T>` | `std::vector(type, [size])` | `std::vector` 包装，堆上分配 |
-| 有序映射 | `php::StdOrderedMap<K, T>` | `std::ordered_map(ktype, vtype)` | `std::map`，字符串键使用 `zend_binary_strcmp` |
+| 有序映射 | `php::StdOrderedMap<K, T>` | `std::orderedMap(ktype, vtype)` | `std::map`，字符串键使用 `zend_binary_strcmp` |
 | 哈希映射 | `php::StdMap<K, T>` | `std::map(ktype, vtype)` | `std::unordered_map`，字符串键使用 `zend_string_hash_val` |
 
 ### 内部实现
@@ -50,7 +50,6 @@ auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->contain
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // BigInt vector —— 写入时 int 字面量自动转换为 BigInt
 $bigVec = std::vector(Type::BigInt);
@@ -59,7 +58,7 @@ $bigVec[] = 12345678901234567890;
 var_dump($bigVec[0]->toString());  // "99"
 
 // BigFloat map —— key 为 int，value 为 BigFloat
-$bigMap = std::ordered_map(Type::Int, Type::BigFloat);
+$bigMap = std::orderedMap(Type::Int, Type::BigFloat);
 $bigMap[0] = 3.14;
 $bigMap[1] = 2.71;
 var_dump($bigMap[0]->toString());  // "3.1400000000000001"
@@ -95,7 +94,6 @@ php::BigInt::toString(bigVec_ref.offsetGet(php::toInt(0L)));       // 调用通�
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 创建空的 int 类型 vector
@@ -172,7 +170,6 @@ auto &v_ref = v.toBox<php::StdContainerBox<php::StdVector<php::Int>>>()->contain
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 创建 int 类型、大小为 5 的定长数组
@@ -262,11 +259,10 @@ matrix_ref[0L][0L] = php::toInt(1L);
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 创建 string → int 的映射
-    $m = std::ordered_map(Type::String, Type::Int);
+    $m = std::orderedMap(Type::String, Type::Int);
 
     // 写入
     $m["alpha"] = 100;
@@ -328,7 +324,6 @@ m_ref.offsetGet(php::Str("alpha")) += php::toInt(10L);
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 创建 int → User 的哈希映射
@@ -396,7 +391,6 @@ sequenceDiagram
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 // 被调方：接收容器并修改
 function vector_update($source): void
@@ -475,6 +469,6 @@ function main(): void {
 2. **不可重新赋值**：变量一旦声明为某种 std 容器类型，不能重新赋值给不同类型的容器
 3. **不支持嵌套访问（非 Array 类型）**：`$vec[a][b]` 仅 StdArray 支持嵌套；StdVector/StdOrderedMap/StdMap 不支持
 4. **foreach 中不可删除**：StdOrderedMap/StdMap 处于 foreach 循环中时，不可 `unset` 其元素
-5. **键类型限制**：map/ordered_map 键仅支持 `type_int` 和 `type_string`
+5. **键类型限制**：`std::map()` / `std::orderedMap()` 的键仅支持 `type_int` 和 `type_string`
 6. **unset 语义差异**：StdVector/StdArray 对元素 `unset` 是重置为零值（`T{}`），不改变容器大小；StdOrderedMap/StdMap 对元素 `unset` 是真正删除（`erase`），会缩减容器大小，之后读取该键会抛出异常
 7. **不可作为引用参数传递**：std 容器变量不可通过 `&$var` 引用方式传递

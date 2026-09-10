@@ -91,7 +91,7 @@ Supported types are bool, int, float, string, array, object, resolved ordinary c
 The following types cannot be used as native class properties:
 
 - `Box`;
-- `std::array`, `std::vector`, `std::map`, `std::ordered_map`, and other Std containers;
+- `std::array`, `std::vector`, `std::map`, `std::orderedMap`, and other Std containers;
 - `void`, `never`, `callable`, and other types that PHP property declarations themselves disallow;
 - `readonly` properties and readonly classes.
 

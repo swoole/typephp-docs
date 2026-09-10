@@ -2,22 +2,22 @@ The TypePHP compiler adds some proprietary features beyond regular `PHP` syntax.
 
 > In the documentation, the `any` type means the variable is untyped; the corresponding `PHP` type is `mixed`, and the `PHPX` type is `php::Var`
 
-## use native_types
+## Native Types and `use varint_types`
 
-Requires the compiler to convert the `int`, `float`, and `bool` types to native types to improve computation performance.
+Inferred `int`, `float`, and `bool` locals use fixed native storage (`php::Int`, `php::Float`, and `php::Bool`) by default.
+
+Use `use varint_types` only when a file needs Zend PHP integer widening semantics:
 
 ```php
-use native_types;
+use varint_types;
 
-function foo() {
-    $a = 1000;
-    while($a--) {
-
-    }
+function divide(): mixed {
+    $a = 10;       // inferred integers use php::Var in this file
+    return $a / 3; // float(3.3333...)
 }
 ```
 
-After using `use native_types`, when a local variable is assigned an integer, it is declared as `php::Int` instead of `php::Var`, yielding huge performance gains in computation-intensive scenarios. Without it, the default is `php::Var`, and integers are stored in `zval` structs.
+This directive affects inferred integers only. Floats and booleans remain fixed native values. For one dynamic expression rather than an entire file, use `std::any($value)`.
 
 ## use bigint_types
 
@@ -44,15 +44,15 @@ function main(): void {
 
 After using `use bigint_types`, all `Scalar_Int` literals are converted into `php::newBigInt(N)` calls at compile time. Without this directive, only very long integer literals of 19 digits or more are automatically recognized as BigInt (see [math.md §11](math.md#11-automatic-recognition-of-very-long-literals)).
 
-### Difference from `use native_types`
+### Relationship to the Default Type Mode
 
 | Directive | Integer literal type | Applicable scenario |
 |------|--------------|---------|
 | None | `php::Int` (native int64) | Ordinary integer arithmetic |
-| `use native_types` | `php::Int` (native int64) | High-performance integer arithmetic |
+| `use varint_types` | `php::Var` (Zend integer semantics) | Integer overflow-to-float and dynamic integer arithmetic |
 | `use bigint_types` | `php::BigInt` (arbitrary precision) | When large integers or chained BigInt method calls are needed |
 
-`use bigint_types` and `use native_types` can be used together. When used together, non-literal integer variables remain `php::Int`, but integer literals are promoted to `php::BigInt`.
+`use bigint_types` promotes integer literals to `php::BigInt`; ordinary inferred integers use the default native storage unless the file also selects `use varint_types`.
 
 ## use decimal_types
 
@@ -144,16 +144,16 @@ Please note there are only these `4` built-in conversion functions; `PHP` does n
 In addition to continuing the type of array elements, if the right-hand side of an assignment is the `any` type, the left-hand side is also declared as `any` by default; you can use the above methods to declare a more accurate type.
 
 ```php
-$a = any(3.001);
+$a = std::any(3.001);
 // $b's type will be php::Int, and the value will be converted to 3
 $b = intval($a);
 ```
 
-## any($value)
+## std::any($value)
 The purpose of this function is to mark a variable's type as `php::Var` rather than a native type. For example:
 
 ```php
-$a = any(123);
+$a = std::any(123);
 $b = 123;
 ```
 
@@ -163,39 +163,16 @@ Without the `any` function, the variable is declared as the `php::Int` type. It 
 $a = 10; // $a's type is Int
 $b = $a / 3;  // $b's value is 3, type is integer
 
-$a = any(10); // $a's type is Var
+$a = std::any(10); // $a's type is Var
 $b = $a / 3;  // $b's value is 3.33333..., type is float
 ```
 
-`any($value)` is equivalent to the keyword method `$value->toAny()`. Both only affect compile-time type inference and do not produce additional runtime type checks.
+`std::any($value)` is equivalent to the keyword method `$value->toAny()`. Both only affect compile-time type inference and do not produce additional runtime type checks.
 
 
-## objval($value, $className)
+## std::ref($value)
 
-Reconstructs an object type with class information from a `mixed` / `any` variable; it is
-
-the functional form of `$var->toObject(ClassName::class)`. `objval()` restores object type information at compile time, giving subsequent method calls the opportunity to generate Native Calls; at runtime it still validates that the actual object satisfies the target class, parent class, or interface constraints.
-
-```php
-$obj = $array['object'];
-$typed = objval($obj, App\Hello\Test::class);
-$typed->foo();  // The compiler can generate a Native Call
-```
-
-The second argument of `objval()` only supports string literals or `ClassName::class` constants.
-
-```php
-// ✅ Correct usage
-$obj = objval($var, TestObjval::class);
-$obj = objval($var, 'TestObjval');
-
-// ❌ The second argument cannot be a variable
-$obj = objval($var, $someClass);
-```
-
-## refval($value)
-
-Changes value passing into reference passing in dynamic calls. `refval()` accepts a **variable**, **array element**, or **object property** as its argument, and cannot accept an expression. `refval($value)` is equivalent to the keyword method `$value->toRef()`.
+Changes value passing into reference passing in dynamic calls. `std::ref()` accepts a **variable**, **array element**, or **object property** as its argument, and cannot accept an expression. `std::ref($value)` is equivalent to the keyword method `$value->toRef()`.
 
 **Variable reference:**
 
@@ -203,7 +180,7 @@ Changes value passing into reference passing in dynamic calls. `refval()` accept
 eval('function retval_test(&$name) { $name .= "refval test"; }');
 
 $name = 'php ';
-retval_test(refval($name));
+retval_test(std::ref($name));
 echo $name; // Output: php refval test
 ```
 
@@ -213,7 +190,7 @@ echo $name; // Output: php refval test
 eval('function array_ref_test(&$val) { $val = "modified"; }');
 
 $arr = ['key' => 'original'];
-array_ref_test(refval($arr['key']));
+array_ref_test(std::ref($arr['key']));
 echo $arr['key']; // Output: modified
 ```
 
@@ -224,26 +201,26 @@ eval('function prop_ref_test(&$val) { $val = "modified"; }');
 
 $obj = new stdClass();
 $obj->prop = 'original';
-prop_ref_test(refval($obj->prop));
+prop_ref_test(std::ref($obj->prop));
 echo $obj->prop; // Output: modified
 ```
 
-`eval()` is a function that executes instructions at runtime; it dynamically generates functions. Because the compiler cannot know the argument types of these dynamic functions during the static compilation phase, it cannot automatically identify by-reference arguments, which is where the `refval()` function is needed to explicitly convert a value into reference passing.
+`eval()` is a function that executes instructions at runtime; it dynamically generates functions. Because the compiler cannot know the argument types of these dynamic functions during the static compilation phase, it cannot automatically identify by-reference arguments, which is where the `std::ref()` function is needed to explicitly convert a value into reference passing.
 
 The following usages are **incorrect**:
 
 ```php
-// ❌ refval() cannot accept an expression
-retval_test(refval("literal string"));
-retval_test(refval($a + $b));
-retval_test(refval(foo()));
+// ❌ std::ref() cannot accept an expression
+retval_test(std::ref("literal string"));
+retval_test(std::ref($a + $b));
+retval_test(std::ref(foo()));
 
 // ❌ toRef() also cannot be used on a temporary expression
 retval_test(($a + $b)->toRef());
 retval_test(foo()->toRef());
 ```
 
-However, the following code does not need `refval()`:
+However, the following code does not need `std::ref()`:
 ```php
 class Request {
     public $data;
@@ -259,7 +236,7 @@ function main()
 }
 ```
 
-`parse_str()` is a built-in function whose argument information is available at compile time; its second argument is a reference type, so the compiler automatically changes the argument to reference passing without requiring the extra `refval()` function.
+`parse_str()` is a built-in function whose argument information is available at compile time; its second argument is a reference type, so the compiler automatically changes the argument to reference passing without requiring the extra `std::ref()` function.
 
 
 ## The `toStream()` Keyword Method

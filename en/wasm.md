@@ -48,6 +48,23 @@ Hello TypePHP/WASI
 
 A Component is the simplest way to get started and does not require Node.js or Jco.
 
+### Using the Nano runtime
+
+The default WASI build uses the prebuilt WASI SDK libraries supplied by PHPX.
+Add `--nano` to select the VM-free PHP Nano source-composition build instead:
+
+```bash
+tpc --nano --wasm hello.php
+wasmtime hello.wasm
+```
+
+Nano WASI currently supports command / `bin` projects only. It also supports
+`--wasm=browser`, but not `mode: library`. It retains console I/O, arguments,
+clocks, entropy, and local file access through preopened directories, while
+excluding dynamic PHP, networking, sockets, and process execution. See
+[Nano Native Compilation](nano.md) for the full boundary and Composer
+dependencies.
+
 ## Environment Requirements
 
 ### Which Tools Need to Be Installed

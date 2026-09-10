@@ -26,20 +26,35 @@ TypePHP 编译器提供了三种高精度类型，底层基于成熟的 C/C++ �
 | Decimal | libmpdec | 十进制小数，约 50 位有效数字，无二进制浮点误差 |
 | BigFloat | MPFR (`libmpfr`) | 任意精度浮点数，可调精度 |
 
+### Nano 模式的高精度后端
+
+使用 `--nano` 编译时，`BigInt`、`Decimal` 和 `BigFloat` 均由 PHP 源码中内置的
+`libbcmath` 实现，不依赖 GMP、mpdecimal 或 MPFR。三种类型的公开 API 和常见运算
+语义保持不变，但 Nano 后端不是这些高精度库的逐位等价实现：
+
+| 类型 | 普通模式 | Nano 模式 | 一致性边界 |
+|------|----------|-----------|------------|
+| BigInt | GMP 任意精度整数 | libbcmath 整数运算 | 整数结果保持精确；实现和性能可能不同 |
+| Decimal | mpdecimal，约 50 位有效数字 | libbcmath，最多保留 50 位小数 | 固定小数位与有效数字精度不是同一种模型，边界舍入可能不同 |
+| BigFloat | MPFR，256 位二进制精度和浮点指数 | libbcmath，最多保留 64 位小数 | Nano 是定点十进制降级实现，不具备与 MPFR 相同的指数范围和舍入模型 |
+
+> **重要：** 普通模式与 Nano 模式不保证高精度结果逐位一致。超过 Nano 小数精度的
+> 部分可能被截断或产生不同的舍入结果；极大或极小的科学计数值、结果字符串格式和
+> 运算性能也可能不同。需要跨模式得到相同业务结果时，应显式限制输入范围和小数位，
+> 并在应用层使用明确的舍入规则。需要 MPFR 的指数范围或严格可复现结果时，不应使用
+> Nano 的 BigFloat 作为 MPFR 的替代品。
+
 ---
 
 ## 2. 快速开始
 
 使用高精度类型的前提条件：
 
-1. 文件头部声明 `declare(strict_types=1)`
-2. 导入原生类型声明 `use native_types`
-3. 系统已安装对应的 C++ 库（`libgmp-dev`、`libmpdec-dev`、`libmpfr-dev`）
+1. 普通模式需安装对应的 C++ 库（`libgmp-dev`、`libmpdec-dev`、`libmpfr-dev`）；Nano 模式不需要这些外部库
 
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 你的高精度计算代码
@@ -58,7 +73,7 @@ function main(): void {
 ./my_program
 ```
 
-> **提示**：和所有 native_types 一样，Big* 类型只能在 TypePHP 编译模式下使用，不能在普通 PHP 解释器中运行。TypePHP 编译器会对 `std::bigInt()` 等函数进行编译期求值，直接生成 C++ 代码。
+> **提示**：Big* 类型只能在 TypePHP 编译模式下使用，不能在普通 PHP 解释器中运行。编译器会在编译期识别 `std::bigInt()` 等构造入口，并直接生成 C++ 代码。
 
 ---
 
@@ -117,10 +132,9 @@ $g = std::bigFloat("3.14159265358979323846");             // 从字符串（精�
 
 ### 4.2 类型标注
 
-在 `use native_types` 下，Big* 类型变量自动获得原生 C++ 存储类型：
+Big* 构造表达式会自动获得对应的固定 C++ 存储类型：
 
 ```php
-use native_types;
 
 // 编译器自动推断类型为 php::BigInt / php::Decimal / php::BigFloat
 $a = std::bigInt(100);         // → C++: php::Variant(new BigInt(100))
@@ -587,9 +601,9 @@ $c = $a + std::bigFloat($b->toString());  // ✅
 
 Big* 类型是 TypePHP 编译器的专有特性，依赖编译期代码生成和 C++ 底层库。源码不能被 `php` 命令直接解释执行。
 
-### 12.7 启用 `use native_types`
+### 12.7 保持 Big* 值的静态类型
 
-忘记添加 `use native_types` 会导致 Big* 变量被当作 Var（通用类型），失去原生类型的大部分性能优势。
+Big* 构造函数会自动推断对应的固定高精度类型。除非确实需要动态存储，否则不要用 `std::any()` 包装它们，因为这会丢失静态类型信息。
 
 ---
 
@@ -600,7 +614,6 @@ Big* 类型是 TypePHP 编译器的专有特性，依赖编译期代码生成和
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 /**
  * 计算 n 的阶乘，支持任意大的结果
@@ -627,7 +640,6 @@ function main(): void {
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 使用 Decimal 精确表示金额
@@ -663,7 +675,6 @@ function main(): void {
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // 使用 BigFloat 进行高精度数学运算
@@ -692,7 +703,6 @@ function main(): void {
 ```php
 <?php
 declare(strict_types=1);
-use native_types;
 
 function main(): void {
     // BigInt — 大整数运算
@@ -752,4 +762,3 @@ d != 100: 1
 pi × 2: 6.2831800000000000
 100 + 50 × 3 - 100 = 350
 ```
-

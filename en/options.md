@@ -146,6 +146,8 @@ Cross-compiles, appending the `--target=<triple>` flag to the compile and link c
 
 Common target triple examples:
   - `aarch64-linux-gnu` — ARM64 Linux
+  - `aarch64-linux-android24` — Android API 24+, arm64-v8a
+  - `arm64-apple-ios15.0` — iPhoneOS arm64, iOS 15+
   - `x86_64-w64-mingw32` — Windows x86-64 (MinGW)
   - `arm-linux-gnueabihf` — ARM32 Linux (hard float)
 
@@ -158,6 +160,25 @@ Common target triple examples:
 ```
 
 > **Note**: GCC cross-compilation usually also requires installing the corresponding cross-compilation toolchain (such as `g++-aarch64-linux-gnu`). Clang has built-in cross-compilation support and only needs `--target`. You can specify the cross-compiler path via the YAML `cpp-compiler` option.
+
+Android and iPhoneOS additionally require their platform SDK, a matching PHPX SDK, sysroot, and linker settings. See [Android, iOS, and macOS Native Applications](mobile-native.md).
+
+### `--nano` — compile a native program without the Zend VM
+
+On Linux, macOS, iOS, and Android targets, this compiles PHP Nano, PHPX, and
+the generated code as one C11/C++17 source build. The resulting program does
+not link `libphp`. Windows continues to link the complete PHP/PHPX DLLs while
+applying the same Nano language and capability restrictions.
+
+```shell
+vendor/bin/tpc.php --nano hello.php
+./hello
+```
+
+Outside Windows, Nano currently supports only `bin` mode, cannot be combined
+with `--full-static`, `-l`, or `-L`, and requires C++17. See
+[Nano Native Compilation](nano.md) for dependency installation, the supported
+API, static extensions, and WASI usage.
 
 ### `--wasm[=profile]` — compile to WASI 0.2
 

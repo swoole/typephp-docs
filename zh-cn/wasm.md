@@ -48,6 +48,21 @@ Hello TypePHP/WASI
 
 Component 是最简单的入门方式，不需要 Node.js 或 Jco。
 
+### 使用 Nano 运行时
+
+默认 WASI 构建使用 PHPX 提供的 WASI SDK 静态库。希望改为无 ZendVM 的 PHP Nano
+源码组合构建时，同时传入 `--nano`：
+
+```bash
+tpc --nano --wasm hello.php
+wasmtime hello.wasm
+```
+
+Nano WASI 当前只支持 command / `bin` 项目，也支持 `--wasm=browser`，但不支持
+`mode: library`。它保留控制台、参数、时钟、随机数和预打开目录中的本地文件访问，
+不提供动态 PHP、网络、socket 或进程执行能力。完整边界和 Composer 依赖见
+[Nano 原生编译](nano.md)。
+
 ## 环境要求
 
 ### 需要安装哪些工具

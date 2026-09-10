@@ -6,12 +6,11 @@ The `TypePHP` compiler supports the vast majority of `PHP` syntax. Because `Type
 2. The `extract` function is not supported; local variables cannot be created at runtime.
 3. Function calls with a number of arguments inconsistent with the declaration are not supported. The `func_get_args()` function cannot be used to implicitly accept extra arguments; variadic parameters must be declared explicitly.
 4. Taking a reference to a `Property Hook` property is not supported.
-5. Automatic inference of by-reference arguments in dynamic calls is not supported; use the `refval()` function explicitly to convert a call argument to a reference.
-6. By-reference parameters and by-reference returns of closures and arrow functions are not supported.
-7. By-reference variadic parameters are not supported, e.g. `function foo(&...$args) {}`.
-8. Dynamic code cannot `use` a statically compiled `Trait`. Traits are combined with classes at compile time, so runtime dynamic binding is not supported.
-9. `Closure::call()/bind()/bindTo()` is not supported. The `$this` and class scope of a `Closure` are determined at compile time and cannot be rebound at runtime.
-10. The `Lazy Object API`, such as `ReflectionClass::newLazyGhost()/newLazyProxy()`, is not supported. `PHP` forbids converting built-in classes into `Lazy Object`.
+5. Automatic inference of by-reference arguments in dynamic calls is not supported; use the `std::ref()` function explicitly to convert a call argument to a reference.
+6. Returning by reference from closures and arrow functions is not supported. Fixed by-reference closure parameters are supported, but dynamic invocation requires `std::ref()` or `toRef()` at the call site.
+7. Dynamic code cannot `use` a statically compiled `Trait`. Traits are combined with classes at compile time, so runtime dynamic binding is not supported.
+8. `Closure::call()/bind()/bindTo()` is not supported. The `$this` and class scope of a `Closure` are determined at compile time and cannot be rebound at runtime.
+9. The `Lazy Object API`, such as `ReflectionClass::newLazyGhost()/newLazyProxy()`, is not supported. `PHP` forbids converting built-in classes into `Lazy Object`.
 
 ## Newly Supported Syntax
 
@@ -157,7 +156,7 @@ Please use a different property name instead; if a child class needs to reuse th
 ## Using References in Dynamic Calls
 
 `TypePHP` cannot determine the argument types of a dynamic call at compile time, so it cannot automatically infer whether an argument is a reference. Native calls or built-in function calls can automatically infer argument types and convert them to references without explicit user specification.
-For example, if a `Closure` function's parameter is a reference type, it can only be determined at runtime and cannot be inferred automatically by the `TypePHP` compiler; you need to explicitly use the `refval()` function or the equivalent keyword method `toRef()` to convert it to a reference.
+For example, if a `Closure` function's parameter is a reference type, it can only be determined at runtime and cannot be inferred automatically by the `TypePHP` compiler; you need to explicitly use the `std::ref()` function or the equivalent keyword method `toRef()` to convert it to a reference.
 
 ```php
 // The function's parameters and return value can only be obtained at runtime
@@ -165,12 +164,12 @@ $fn = getClosure();
 // The compiler cannot determine whether an argument should use value or reference passing, so value passing is used by default
 $fn($a, $b, $c);
 // $c will be explicitly passed by reference instead of by value
-$fn($a, $b, refval($c));
+$fn($a, $b, std::ref($c));
 // Equivalent: toRef() is a TypePHP-specific keyword method
 $fn($a, $b, $c->toRef());
 ```
 
-Closures and arrow functions also cannot currently declare by-reference parameters or return by reference. This restriction is different from `use (&$value)` reference capture; reference capture is already supported.
+Closures support fixed by-reference parameters, but cannot return by reference. Reference capture with `use (&$value)` is supported for dynamic values; fixed native references have stricter non-escape rules. See [Strongly Typed References](strong-references.md).
 
 ## Closure Rebinding Is Not Supported
 
@@ -233,7 +232,7 @@ In `ZendPHP`, `$array[null] = 1` is equivalent to `$array[''] = 1`; `null` is im
 Therefore, if you need to explicitly use an empty string as a key, use `$array['']` directly instead of `$array[null]`.
 
 ## Strict Mode
-The TypePHP compiler does not allow manually setting the current file to non-strict mode: `declare(strict_types=0)` will cause a compilation error:
+TypePHP always uses strict typing. `declare(strict_types=1)` is accepted for PHP-source compatibility but is redundant. Setting `declare(strict_types=0)` causes a compilation error:
 
 ```bash
 Fatal error: declare(strict_types=0) is not allowed, only strict_types=1 is supported

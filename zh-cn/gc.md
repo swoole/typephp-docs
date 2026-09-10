@@ -84,7 +84,6 @@ Variant &setNull() {
 ### 行为
 
 ```php
-use native_types;
 
 $a = 42;        // php::Int — 值直接存于栈上的 zval.lval
 $b = $a;        // 复制 8 字节整数，无引用计数操作

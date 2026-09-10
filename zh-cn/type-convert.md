@@ -10,7 +10,6 @@
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function convert_basic(mixed $input): void
 {
@@ -29,7 +28,7 @@ function convert_basic(mixed $input): void
 | `toString()` | `php::Str` | `php::toString($expr)` | |
 | `toBool()` | `php::Bool` | `php::toBool($expr)` | |
 | `toArray()` | `php::Array` | `php::toArray($expr)` | 见下方"对象转数组"说明 |
-| `toAny()` | `php::Var` | `php::Var($expr)` | 降级为动态类型，等价于 `any($expr)` |
+| `toAny()` | `php::Var` | `php::Var($expr)` | 降级为动态类型，等价于 `std::any($expr)` |
 
 ### `toArray()` 对象转数组
 
@@ -79,20 +78,19 @@ PHP 的 `(int)` / `(float)` 等强制转换语法虽然也支持，但 `to*` 方
 
 ## 2. 动态类型与引用转换
 
-`toAny()` 和 `toRef()` 是 TypePHP 专有关键词方法，用于替代函数式写法 `any()` 和 `refval()`。二者完全等价，但方法形式更适合链式表达式。
+`toAny()` 和 `toRef()` 是 TypePHP 专有关键词方法，用于替代函数式写法 `std::any()` 和 `std::ref()`。二者完全等价，但方法形式更适合链式表达式。
 
 ### 2.1 `toAny()`
 
-`toAny()` 将表达式降级为 `php::Var` / `mixed` / `any` 动态类型，等价于 `any($expr)`。它不会恢复对象类信息，也不会生成对象类型检查。
+`toAny()` 将表达式降级为 `php::Var` / `mixed` / `any` 动态类型，等价于 `std::any($expr)`。它不会恢复对象类信息，也不会生成对象类型检查。
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function any_example(object $value): void
 {
-    $a = any($value);
-    $b = $value->toAny();  // 与 any($value) 等价
+    $a = std::any($value);
+    $b = $value->toAny();  // 与 std::any($value) 等价
 }
 ```
 
@@ -111,20 +109,19 @@ $value->toAny($type);  // ❌ 编译错误
 
 ### 2.2 `toRef()`
 
-`toRef()` 将表达式显式转换为引用，等价于 `refval($expr)`。它主要用于动态调用、闭包调用等编译期无法获知参数是否按引用传递的场景。
+`toRef()` 将表达式显式转换为引用，等价于 `std::ref($expr)`。它主要用于动态调用、闭包调用等编译期无法获知参数是否按引用传递的场景。
 
 ```php
-function append_text(&$value, string $suffix): void
-{
-    $value .= $suffix;
-}
-
 function ref_example(): void
 {
+    $append_text = function (string &$value, string $suffix): void {
+        $value .= $suffix;
+    };
+
     $name = 'AOT';
 
-    append_text(refval($name), ' compiler');
-    append_text($name->toRef(), ' runtime'); // 与 refval($name) 等价
+    $append_text(std::ref($name), ' compiler');
+    $append_text($name->toRef(), ' runtime'); // 与 std::ref($name) 等价
 }
 ```
 
@@ -139,14 +136,16 @@ $object->prop->toRef(); // ✅ 对象属性
 foo()->toRef();         // ❌ 调用结果不能转引用
 ```
 
-与 `refval()` 一样，`toRef()` 不接受任何参数：
+与 `std::ref()` 一样，`toRef()` 不接受任何参数：
 
 ```php
 $value->toRef();     // ✅
 $value->toRef(true); // ❌ 编译错误
 ```
 
-> **提示**：静态函数和内置函数的参数信息明确时，编译器可以自动处理引用参数。只有动态调用、闭包调用、可变函数调用等无法在编译期获得参数签名的场景，才需要显式使用 `toRef()` / `refval()`。
+> **提示**：静态函数和内置函数的参数信息明确时，编译器可以自动处理引用参数。只有动态调用、闭包调用、可变函数调用等无法在编译期获得参数签名的场景，才需要显式使用 `toRef()` / `std::ref()`。
+
+原生 `T&` 引用及其不可逃逸限制详见[强类型引用](strong-references.md)。
 
 ---
 
@@ -156,7 +155,6 @@ $value->toRef(true); // ❌ 编译错误
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function stream_example(): void
 {
@@ -180,7 +178,6 @@ Big* 类型（BigInt / Decimal / BigFloat）定义了更精确的转换路径，
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function bigint_convert(): void
 {
@@ -241,7 +238,6 @@ Big* → String 始终通过各类型的 `toString()` 静态方法，避免二�
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function object_convert(mixed $input): void
 {
@@ -259,7 +255,7 @@ function object_convert(mixed $input): void
 | `$x->toObject()` | `php::toObject($x)` | 无（`php::Object`） |
 | `$x->toObject(User::class)` | `php::toObject($x, ce_User)` | 有（编译器知道目标类） |
 
-> **提示**：`toObject(ClassName::class)` 和 `objval($var, ClassName::class)` 均可用于对象类型接续，前者支持链式调用。带类名的对象转换使用 PHP `instanceof` / `is-a` 关系进行运行时检查，详见 [对象类型转换](object-type-conversion.md)。
+> **提示**：`toObject(ClassName::class)` 可接续对象的具体类型，并支持链式调用。带类名的对象转换使用 PHP `instanceof` / `is-a` 关系进行运行时检查，详见 [对象类型转换](object-type-conversion.md)。
 
 ---
 
@@ -269,7 +265,6 @@ function object_convert(mixed $input): void
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function std_convert(): void
 {
@@ -330,7 +325,7 @@ function bar(): void
     var_dump(__FUNCTION__);
 }
 
-$value = bar()->toAny();     // 等价于 any(null)
+$value = bar()->toAny();     // 等价于 std::any(null)
 $text = bar()->toString();   // 等价于 php::toString(null)
 ```
 
@@ -355,7 +350,6 @@ $text = bar()->toString();   // 等价于 php::toString(null)
 
 ```php
 declare(strict_types=1);
-use native_types;
 
 function comprehensive_convert(): void
 {
