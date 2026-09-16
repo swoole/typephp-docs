@@ -23,6 +23,8 @@ Keyword methods are a separate syntax system and are not included in the compile
 | `std::vector($type[, $size])` | creates a dynamic StdVector container |
 | `std::map($keyType, $valueType)` | creates a hash StdMap container |
 | `std::orderedMap($keyType, $valueType)` | creates an ordered StdOrderedMap container |
+| `std::list($valueType)` | creates an integer-key typed PHP array supporting append |
+| `std::dict($keyType, $valueType)` | creates a typed PHP dictionary requiring explicit keys |
 
 ## Usage Positions and Name Spelling
 
@@ -35,6 +37,7 @@ These core functions serve different purposes and apply in different positions:
 | `std::ref()` | call arguments only | used to pass a referenceable value to a parameter that requires a reference; it is not an ordinary value conversion function. |
 | `std::expected()` | boolean condition expressions | used in conditions that are usually true, such as `if`, `elseif`, loops, or ternary expressions. |
 | `std::unexpected()` | boolean condition expressions | used in conditions that are usually false, such as errors, out-of-bounds, or cache misses. |
+| `std::list()` / `std::dict()` | first assignment of a new function-local variable | establishes a typed PHP array contract; not an ordinary runtime array conversion function. |
 
 Compile-time functions are static methods of the global `std` class. The `std` class and its method names are case-insensitive, following PHP class/method rules; `Type::*` type constants remain case-sensitive.
 
@@ -596,6 +599,87 @@ function main(): void {
 }
 ```
 
+## std::list($valueType)
+
+`std::list()` creates an empty typed PHP integer-key array. Storage remains an ordinary PHP `array`, not a Box-wrapped C++ container, so no `toStd*()` recovery is needed. Keys are `int`, including negative and sparse indices and holes, without vector-style bounds checks. Appending with `[]` follows PHP array semantics.
+
+```php
+function append_values(#[StdList(Type::Int)] array &$values): void {
+    $values[] = 40;
+}
+
+function main(): void {
+    $values = std::list(Type::Int);
+    $values[-5] = 10;
+    $values[100] = 20;
+    $values[] = 30; // Key 101
+
+    $key = std::any(200);
+    $values[$key] = 50; // Generated internal strict check: the runtime key must be int
+
+    $copy = $values;   // Same contract; PHP copy-on-write
+    $alias = &$values; // A static reference with the same contract
+    append_values($alias);
+
+    foreach ($values as $index => $value) {
+        // Both $index and $value have concrete int types
+        echo $index, ':', $value, "\n";
+    }
+    var_dump(array_search(20, $values, true), count($copy));
+
+    // $values['1'] = 60;       // Compile error: a non-var key must be int
+    // $values[] = '60';        // Compile error: values must be int
+    // array_push($values, 60); // Compile error: dynamic reference mutation
+    // std::ref($values);       // Typed arrays cannot be passed through std::ref()
+}
+```
+
+Values may also declare an ordinary PHP class:
+
+```php
+class MyUser { public int $id = 1; }
+
+function main(): void {
+    $users = std::list(MyUser::class);
+    $users[] = new MyUser();
+    foreach ($users as $user) {
+        echo $user->id; // $user retains the MyUser class type
+    }
+}
+```
+
+## std::dict($keyType, $valueType)
+
+`std::dict()` creates an empty typed PHP dictionary. Keys must be declared as `Type::Int` or `Type::Str` (`Type::String` is an alias). Dicts share PHP array storage with lists, but every dict requires explicit keys and disallows `[]` append. Integer-key dicts are not interchangeable with `StdList` parameters either.
+
+```php
+function update_counts(#[StdDict(Type::Str, Type::Int)] array &$counts): void {
+    $counts['php'] = 3;
+}
+
+function main(): void {
+    $counts = std::dict(Type::Str, Type::Int);
+    $counts['php'] = 1;
+    $counts['123'] = 2; // PHP normalization is preserved: stored as an integer key
+    update_counts($counts);
+
+    foreach ($counts as $key => $value) {
+        // $key is concretely str, including underlying integer keys; $value is int
+        echo $key, ':', $value, "\n";
+    }
+    var_dump(array_keys($counts)); // Built-ins retain their ordinary PHP results
+
+    // $counts[123] = 4; // Compile error: a static int key does not match str
+    // $counts[] = 4;    // Compile error: dicts disallow append
+}
+```
+
+Both factories require compile-time constant type arguments. Values support `Type::Int`, `Type::Float`, `Type::Bool`, `Type::Str`, `Type::Array`, `Type::Object`, `Type::Any`, and `ClassName::class`, but not Native objects. Values require matching static types, except for `Type::Any`. Dynamic `any` / `var` keys receive internal strict checks: a mismatched runtime type raises `TypeError` without implicit conversion.
+
+Read-only array built-ins and TypePHP array methods are allowed. Dynamic PHP calls that mutate or receive arrays by reference, `std::ref()`, element references, and reference `foreach` are forbidden. TypePHP function or method parameters must have exactly matching `StdList` / `StdDict` type annotations; their PHP type may be omitted or declared as `array`, never `mixed`. By-value parameters use copy-on-write; `&` parameters may modify the caller's array.
+
+See [Typed PHP Arrays](typed-arrays.md) for copy, reference, read, and current limitation details, and [Type Annotations](std-container-parameters.md) for parameter and property syntax.
+
 ## Type Description Arguments
 
 The `$type`, `$keyType`, and `$valueType` of Std containers are not ordinary runtime variables but compile-time type descriptions. Common values are as follows:
@@ -608,7 +692,7 @@ The `$type`, `$keyType`, and `$valueType` of Std containers are not ordinary run
 | `Type::BigInt` | BigInt |
 | `Type::Decimal` | Decimal |
 | `Type::BigFloat` | BigFloat |
-| `Type::String` | string |
+| `Type::Str` / `Type::String` | string |
 | `Type::Array` | array |
 | `Type::Object` | object |
 | `Type::Any` | any / mixed |

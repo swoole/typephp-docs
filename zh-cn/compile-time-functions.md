@@ -23,6 +23,8 @@
 | `std::vector($type[, $size])` | 创建动态 StdVector 容器 |
 | `std::map($keyType, $valueType)` | 创建哈希 StdMap 容器 |
 | `std::orderedMap($keyType, $valueType)` | 创建有序 StdOrderedMap 容器 |
+| `std::list($valueType)` | 创建整数键的强类型 PHP 数组，支持追加 |
+| `std::dict($keyType, $valueType)` | 创建指定键、值类型的强类型 PHP 字典，必须显式提供键 |
 
 ## 使用位置与名称写法
 
@@ -35,6 +37,7 @@
 | `std::ref()` | 仅限调用参数 | 用于把一个可引用的值传给需要引用的参数；它不是普通值转换函数。 |
 | `std::expected()` | 布尔条件表达式 | 用于 `if`、`elseif`、循环或三元表达式等通常为真的条件。 |
 | `std::unexpected()` | 布尔条件表达式 | 用于错误、越界、缓存未命中等通常为假的条件。 |
+| `std::list()` / `std::dict()` | 新的函数局部变量首次赋值 | 建立强类型 PHP 数组及其静态类型契约，不是普通运行时数组转换函数。 |
 
 编译期函数是全局 `std` 类的静态方法。`std` 类名及其方法名遵循 PHP 规则，不区分大小写；`Type::*` 类型常量仍区分大小写。
 
@@ -592,6 +595,87 @@ function main(): void {
 }
 ```
 
+## std::list($valueType)
+
+`std::list()` 创建空的强类型 PHP 数字索引数组。底层仍是普通 PHP `array`，不是 Box 包装的 C++ 容器，不需要 `toStd*()`。键固定为 `int`，允许负数、稀疏索引和空洞，不做 vector 式边界检查；`[]` 追加遵循 PHP 数组规则。
+
+```php
+function append_values(#[StdList(Type::Int)] array &$values): void {
+    $values[] = 40;
+}
+
+function main(): void {
+    $values = std::list(Type::Int);
+    $values[-5] = 10;
+    $values[100] = 20;
+    $values[] = 30; // 键为 101
+
+    $key = std::any(200);
+    $values[$key] = 50; // 自动插入内部严格检查：运行时 key 必须是 int
+
+    $copy = $values;   // 传导相同类型，保留 PHP 写时复制
+    $alias = &$values; // 相同类型的静态引用
+    append_values($alias);
+
+    foreach ($values as $index => $value) {
+        // $index 和 $value 均为明确的 int 类型
+        echo $index, ':', $value, "\n";
+    }
+    var_dump(array_search(20, $values, true), count($copy));
+
+    // $values['1'] = 60;       // 编译错误：非 var 的键必须为 int
+    // $values[] = '60';        // 编译错误：值必须为 int
+    // array_push($values, 60); // 编译错误：动态引用修改
+    // std::ref($values);       // 禁止将强类型数组通过 std::ref() 传递
+}
+```
+
+值也可以声明为普通 PHP 类：
+
+```php
+class MyUser { public int $id = 1; }
+
+function main(): void {
+    $users = std::list(MyUser::class);
+    $users[] = new MyUser();
+    foreach ($users as $user) {
+        echo $user->id; // $user 保持 MyUser 类类型
+    }
+}
+```
+
+## std::dict($keyType, $valueType)
+
+`std::dict()` 创建空的强类型 PHP 字典，键只能声明为 `Type::Int` 或 `Type::Str`（`Type::String` 是同义写法）。它与 list 一样使用普通 PHP 数组存储，但所有 dict 都必须显式提供键，不能使用 `[]` 追加；整数键 dict 也不能代替 `StdList` 参数。
+
+```php
+function update_counts(#[StdDict(Type::Str, Type::Int)] array &$counts): void {
+    $counts['php'] = 3;
+}
+
+function main(): void {
+    $counts = std::dict(Type::Str, Type::Int);
+    $counts['php'] = 1;
+    $counts['123'] = 2; // 保留 PHP 行为：底层存为整数键
+    update_counts($counts);
+
+    foreach ($counts as $key => $value) {
+        // $key 明确为 str，包括底层整数键；$value 明确为 int
+        echo $key, ':', $value, "\n";
+    }
+    var_dump(array_keys($counts)); // 内置函数仍返回普通 PHP 结果
+
+    // $counts[123] = 4; // 编译错误：静态 int 键不匹配 str
+    // $counts[] = 4;    // 编译错误：dict 不支持追加
+}
+```
+
+两种工厂的类型参数必须是编译期常量。值支持 `Type::Int`、`Type::Float`、`Type::Bool`、`Type::Str`、`Type::Array`、`Type::Object`、`Type::Any` 和 `ClassName::class`，不支持 Native 对象。强类型值要求静态类型匹配，`Type::Any` 值除外；`any` / `var` 键自动插入内部严格类型检查，运行时类型不符抛出 `TypeError`，不会隐式转换。
+
+只读数组内置函数及 TypePHP 只读数组方法可以使用；可修改或按引用接收数组的动态 PHP 调用、`std::ref()`、元素引用和引用 `foreach` 均禁止。传入 TypePHP 函数或方法时，参数必须有完全一致的 `StdList` / `StdDict` 类型注解，PHP 类型可省略或为 `array`，不允许 `mixed`。按值参数使用写时复制，`&` 参数可以修改调用方的数组。
+
+完整的复制、引用、读取及当前限制见[强类型 PHP 数组](typed-arrays.md)，参数和属性语法见[类型注解](std-container-parameters.md)。
+
 ## 类型描述参数
 
 Std 容器的 `$type`、`$keyType`、`$valueType` 不是普通运行时变量，而是编译期类型描述。常用取值如下：
@@ -604,7 +688,7 @@ Std 容器的 `$type`、`$keyType`、`$valueType` 不是普通运行时变量，
 | `Type::BigInt` | BigInt |
 | `Type::Decimal` | Decimal |
 | `Type::BigFloat` | BigFloat |
-| `Type::String` | string |
+| `Type::Str` / `Type::String` | string |
 | `Type::Array` | array |
 | `Type::Object` | object |
 | `Type::Any` | any / mixed |
