@@ -360,9 +360,31 @@ u_ref.offsetSet(php::toInt(2L), user2);
 
 ---
 
-## 5. Cross-Function Reference Passing and toStd* Keyword Methods
+## 5. Cross-Function Reference Passing, Parameter Attributes, and toStd* Keyword Methods
 
 Std containers are held as `php::Var` (Box resource); when passed as function arguments, the Box handle is passed. The callee can extract the container reference via `toStd*` keyword methods (such as `toStdVector`, `toStdArray`), and modifications are reflected in the caller's original container — **zero copy, zero allocation**.
+
+### Parameter Type Attributes
+
+Named function and method parameters can declare their types through built-in attributes. The compiler generates entry checks and container reference recovery automatically, without a manual `toStd*()` call:
+
+```php
+function vector_append(#[StdVector(Type::Int)] $values): void
+{
+    $values[] = 42;
+}
+
+function main(): void
+{
+    $values = std::vector(Type::Int);
+    vector_append($values);
+    var_dump($values[0]); // int(42)
+}
+```
+
+The PHP parameter type may be omitted or declared as compatible `box`; explicit `mixed`, `array`, and other types are rejected. `StdMap` and `StdOrderedMap` type annotations are also supported; fixed-length arrays still use `toStdArray()`. See [Type Annotations](std-container-parameters.md) for full syntax, method inheritance rules, and dynamic-call boundaries.
+
+The explicit `toStd*()` approach described below remains supported. Neither approach automatically converts PHP arrays into std containers. Dynamic callable calls can still convert statically known std container arguments into PHP arrays; do not treat these calls as direct Box passing.
 
 ### Working Mechanism
 
@@ -472,3 +494,4 @@ function main(): void {
 5. **Key type limitation**: `std::map()` / `std::orderedMap()` keys support only `type_int` and `type_string`
 6. **unset semantic difference**: for StdVector/StdArray, `unset` on an element resets it to the zero value (`T{}`) without changing the container size; for StdOrderedMap/StdMap, `unset` on an element is a real delete (`erase`), which shrinks the container size, and reading that key afterwards throws an exception
 7. **Cannot be passed as a reference parameter**: std container variables cannot be passed via the `&$var` reference form
+8. **Parameter attribute limitations**: only named function and method parameters are supported, not reference, variadic, defaulted, promoted, Closure, arrow-function, or Generator parameters. A PHP parameter type cannot also be declared; see [Type Annotations](std-container-parameters.md).

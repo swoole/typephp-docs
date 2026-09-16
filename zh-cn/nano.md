@@ -1,5 +1,3 @@
-## Nano 原生编译
-
 Nano 模式用于生成不携带 PHP 解释器和 ZendVM 的 TypePHP 原生程序。PHP 仍用于
 运行编译器，Composer 仍用于安装编译期依赖；它们不会成为最终程序的运行时依赖。
 
@@ -7,7 +5,7 @@ Nano 模式用于生成不携带 PHP 解释器和 ZendVM 的 TypePHP 原生程�
 清单，把 PHP Nano、PHPX 和生成的 C++ 一起编译。最终程序不链接 `libphp`，也不能
 在运行时解释或加载 PHP 源码。
 
-### 与普通模式的区别
+## 与普通模式的区别
 
 | 项目 | 普通模式 | Nano 模式（非 Windows） |
 |---|---|---|
@@ -23,7 +21,7 @@ Nano 不是重新实现一套 PHP 数据结构。它直接复用 PHP 8.6 的 `zv
 解释执行和不符合 Nano 能力边界的部分。因此普通类、继承、接口、异常、闭包和
 同步的动态对象方法调用仍然可用。
 
-### 安装
+## 安装
 
 项目需要安装 TypePHP 和 PHP Nano。`swoole/typephp` 已依赖 `swoole/phpx`，无需
 重复声明 PHPX：
@@ -39,7 +37,7 @@ Nano 的生产构建不使用 CMake。TypePHP 直接读取 `swoole/php-nano` 与
 当前用于启动 `vendor/bin/tpc.php` 的 PHP 必须满足 TypePHP 的版本要求。它只在
 编译期运行；Nano 内部复用 PHP 8.6 源码，并不要求目标设备安装 PHP 8.6。
 
-### 编译第一个程序
+## 编译第一个程序
 
 创建 `hello.php`：
 
@@ -83,7 +81,7 @@ Nano 与普通模式共用参数解析、代码生成、并行任务、进度显
 PHP Nano 中 PHP 自带的 PCRE2、timelib 和 libbcmath 等源码会直接编入程序，不是
 额外的动态链接依赖。
 
-### 可用能力
+## 可用能力
 
 Nano 内置经过裁剪的 Core、date、hash、json、pcre、random、Reflection、SPL、
 standard 和 filter。主要保留：
@@ -103,7 +101,7 @@ standard 和 filter。主要保留：
 mpdecimal 和 MPFR。接口保持可用，但精度模型、舍入、极端数值范围、格式化和性能
 不保证逐位一致，详见[高精度运算](math.md#nano-模式的高精度后端)。
 
-### 不支持的能力
+## 不支持的能力
 
 所有平台的 `--nano` 都不支持以下能力。对应语法和可静态识别的直接调用会在编译期
 报错：
@@ -121,7 +119,7 @@ mpdecimal 和 MPFR。接口保持可用，但精度模型、舍入、极端数�
 TypePHP 在生成 C++ 前报错。本地文件能力并不意味着支持远程 URL、进程管道或用户
 自定义 stream wrapper。
 
-### 静态 Composer 扩展
+## 静态 Composer 扩展
 
 Nano 保留 Zend 扩展生命周期，但不提供运行时动态加载。额外扩展必须使用
 `swoole/php-ext-*` 命名的 Composer 包，并在包的 `extra.typephp-native` 中声明
@@ -131,7 +129,7 @@ Nano 保留 Zend 扩展生命周期，但不提供运行时动态加载。额外
 注册表。原有的 MINIT、RINIT、RSHUTDOWN 和 MSHUTDOWN 生命周期保持不变；扩展
 集合在程序构建完成后不可改变。扩展仍必须满足 Nano 的依赖和能力限制。
 
-### WASI
+## WASI
 
 Nano 可以与 WASI 目标组合：
 
@@ -152,7 +150,7 @@ WASI 是 Native Nano 的更小能力子集，仅保留目标运行时可表达�
 被移除或报错。WASI SDK、Wasmtime、浏览器输出和目录授权方式见
 [编译到 WebAssembly](wasm.md)。
 
-### 平台差异
+## 平台差异
 
 - **Linux 与 macOS**：PHP Nano 和 PHPX 源码直接加入最终程序构建。
 - **iOS 与 Android**：PHP Nano 运行时接受对应 SDK/NDK 工具链编译；完整应用还需
@@ -164,7 +162,7 @@ WASI 是 Native Nano 的更小能力子集，仅保留目标运行时可表达�
 当目标是检查最终程序是否意外链接 PHP 或其他共享库时，可使用平台提供的二进制
 依赖检查工具；同时应以编译日志中列出的 sources 和 link inputs 为准。
 
-### 常见错误
+## 常见错误
 
 - **提示未安装 `swoole/php-nano`**：在当前项目执行
   `composer require --dev swoole/php-nano`，并使用该项目的

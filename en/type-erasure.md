@@ -66,7 +66,7 @@ $users = ['owner' => new User()];
 $owner = std::object($users['owner'], User::class);
 ```
 
-Use [`#[ArrayDef]`](array-def.md) when an ordinary PHP array needs compiler-checked key/value rules, or a [Std container](std-containers.md) when its element type and native layout must remain fixed.
+Use [std::list / std::dict and their type annotations](typed-arrays.md) when a PHP array needs compiler-checked key/value rules, or a [Std container](std-containers.md) when its element type and native layout must remain fixed.
 
 Other common dynamic boundaries include untyped/`mixed` parameters and returns, dynamic function or method calls, extension APIs returning general PHP values, and untyped object properties.
 
@@ -86,6 +86,8 @@ Choose the recovery operation according to the required destination type:
 | Stream | `$value->toStream()` | Recovers a stream resource |
 | High-precision number | `toBigInt()`, `toDecimal()`, `toBigFloat()` or matching `std::*` constructor | Constructs the selected fixed numeric type |
 | Std container | `toStdArray()`, `toStdVector()`, `toStdMap()`, `toStdOrderedMap()` | Establishes a fixed container type on its first top-level assignment |
+
+Named function and method parameters can use [Type Annotations](std-container-parameters.md) to restore vector, map, or ordered-map types automatically, for example `#[StdVector(Type::Int)] $values`. The PHP parameter type may be omitted or declared as `box`, never `mixed`; Box passing and dynamic-call conversion rules remain unchanged.
 
 ```php
 function consume(mixed $payload): void

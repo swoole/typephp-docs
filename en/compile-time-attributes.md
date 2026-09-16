@@ -12,7 +12,11 @@ Therefore, the mechanism of these generating Attributes is itself **zero runtime
 
 `NotNull`, `NotEmpty`, and `Validate` are also expanded at compile time, with no runtime Attribute parsing overhead; but the parameter checks and exception branches they generate are the explicitly required business checks, and are executed on every call.
 
-`Override`, `MustUse`, and `Immutable` only perform compile-time static validation and generate no runtime code. `ArrayDef` adds no type checks for appends and Map writes whose static types are explicit; `any` keys or values get strict type checks inserted, and explicit index assignment on a List also performs bounds checking. `Native` selects an independent native object model at compile time. `Hot` and `Cold` are converted at compile time into optimization hints for the C++ compiler and perform no runtime Attribute checks. `Constructor` generates an ordinary constructor at compile time, with no additional runtime overhead compared to an equivalent hand-written one.
+`StdVector`, `StdMap`, and `StdOrderedMap` generate entry-point Box type checks and container reference recovery at compile time, without runtime Attribute scanning. The generated checks execute on each call and do not copy the container or convert its elements individually.
+
+`StdList` and `StdDict` declare contracts for ordinary PHP arrays. Statically known keys, values, and native call arguments are checked at compile time; `any` / `var` keys receive internal strict runtime type checks. There are no element scans or whole-array parameter recovery checks. See [Typed PHP Arrays](typed-arrays.md).
+
+`Override`, `MustUse`, and `Immutable` only perform compile-time static validation and generate no runtime code. Use `StdList` / `StdDict` type annotations for array properties in new code; list index writes have no bounds checks. `Native` selects an independent native object model at compile time. `Hot` and `Cold` become C++ optimization hints without runtime Attribute checks. `Constructor` generates an ordinary constructor, with no extra runtime overhead compared to an equivalent hand-written one.
 
 ## Annotation List
 
@@ -31,11 +35,15 @@ Therefore, the mechanism of these generating Attributes is itself **zero runtime
 | [`#[Override]`](override.md) | Methods | Force the method to override a parent method or implement an interface method |
 | [`#[MustUse]`](must-use.md) | Functions, methods | Forbid discarding the return value of a call |
 | [`#[Immutable]`](immutable.md) | Methods, Property Hooks, parameters | Perform compile-time immutability checks on `$this` or parameters in the method |
+| [`#[StdVector(T)]`](std-container-parameters.md) | Named function/method parameters and properties | StdVector type annotation; omit the PHP type or declare `box`, never `mixed` |
+| [`#[StdMap(K, V)]`](std-container-parameters.md) | Named function/method parameters and properties | StdMap type annotation; omit the PHP type or declare `box`, never `mixed` |
+| [`#[StdOrderedMap(K, V)]`](std-container-parameters.md) | Named function/method parameters and properties | StdOrderedMap type annotation; omit the PHP type or declare `box`, never `mixed` |
+| [`#[StdList(T)]`](typed-arrays.md) | Named function/method parameters and properties | StdList type annotation; omit the PHP type or declare `array`, never `mixed` |
+| [`#[StdDict(K, V)]`](typed-arrays.md) | Named function/method parameters and properties | StdDict type annotation; omit the PHP type or declare `array`, never `mixed` |
 | [`#[Native]`](native-class.md) | Named classes | Compile the class into a native C++ object not registered with ZendVM |
 | [`#[Hot]`](hot.md) | Functions, methods | Hint the compiler to prioritize optimizing high-frequency execution paths |
 | [`#[Cold]`](cold.md) | Functions, methods | Hint the compiler to optimize the function as a low-frequency path |
 | [`#[Constructor]`](constructor.md) | Instance properties | Generate a public constructor from the properties |
-| [`#[ArrayDef(...)]`](array-def.md) | `array` properties | Declare the List element type or the Map key and value types, and check direct element writes |
 | [`#[WasmExport]`](wasm-export.md) | Functions | Export a statically-typed function as a WIT interface of a WASI 0.2 Component |
 
 ## Namespace Rules

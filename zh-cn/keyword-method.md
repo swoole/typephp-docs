@@ -253,6 +253,8 @@ $result = $number->sqrt();
 
 Std 容器通过 Box 资源跨越动态函数边界后，会丢失具体模板类型。`toStd*` 方法用于恢复容器类型，并且不会复制底层容器。
 
+具名函数和方法参数也可以使用 [类型注解](std-container-parameters.md)，自动完成入口检查及引用恢复，省去函数体中的 `toStd*()`。例如 `function append(#[StdVector(Type::Int)] $values): void`；PHP 参数类型可省略或为 `box`，不允许 `mixed`。局部 Box 值和定长数组仍可使用下面的显式恢复方法。
+
 ### 7.1 StdVector
 
 ```php

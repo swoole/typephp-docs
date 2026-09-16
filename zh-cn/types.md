@@ -94,7 +94,7 @@ $values[10] = ['nested' => true];
 
 `array` 参数或属性类型只表示这个值本身必须是 PHP 数组，不会约束数组内部元素。PHPDoc 中的 `list<int>`、`array<string, User>` 等写法仅供 IDE 和静态分析工具使用，ZendVM 不会执行这些约束。
 
-因此，ZendPHP 并没有覆盖变量、参数、局部值和容器元素的完整强类型系统。TypePHP 在兼容 PHP 语法的基础上增加编译期类型推断、固定原生类型、[`#[ArrayDef]`](array-def.md)、[Std 强类型容器](std-containers.md)、[`#[Immutable]`](immutable.md) 和 [`#[Native]`](native-class.md) 等约束；这些能力才会在编译阶段限制类型变化，或生成具有固定 C++ 存储类型的代码。
+因此，ZendPHP 并没有覆盖变量、参数、局部值和容器元素的完整强类型系统。TypePHP 在兼容 PHP 语法的基础上增加编译期类型推断、固定原生类型、[强类型 PHP 数组及其类型注解](typed-arrays.md)、[Std 强类型容器](std-containers.md)、[`#[Immutable]`](immutable.md) 和 [`#[Native]`](native-class.md) 等约束；这些能力才会在编译阶段限制类型变化，或生成具有固定 C++ 存储类型的代码。
 
 ## 1. 类型总览
 
@@ -201,7 +201,7 @@ Big* 类型是**不可变的**（immutable）——每次运算返回新值，�
 
 TypePHP 编译器直接映射 C++ 标准库容器，提供零开销的类型安全存储。键类型仅支持 `Type::Int` 和 `Type::String`。
 
-如果数据必须保持普通 PHP `array`，但希望编译器检查属性上的直接元素写入，可以使用 [`#[ArrayDef]`](array-def.md)。它不会把 PHP 数组转换成 Std Container；两者的存储模型和动态边界不同。
+如果数据必须保持普通 PHP `array`，但希望编译器检查属性上的直接元素写入，可以使用 [强类型 PHP 数组及其类型注解](typed-arrays.md)。它不会把 PHP 数组转换成 Std Container；两者的存储模型和动态边界不同。
 
 ```php
 declare(strict_types=1);

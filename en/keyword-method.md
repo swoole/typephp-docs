@@ -253,6 +253,8 @@ For conversion rules, precision, and limitations between high-precision types, s
 
 After a Std container crosses a dynamic function boundary through a Box resource, it loses its concrete template type. The `toStd*` methods are used to restore the container type, and they do not copy the underlying container.
 
+Named function and method parameters can also use [Type Annotations](std-container-parameters.md) to generate entry checks and reference recovery without a `toStd*()` call in the body. For example, `function append(#[StdVector(Type::Int)] $values): void`; omit the PHP parameter type or declare `box`; explicit `mixed` is rejected. Local Box values and fixed-length arrays can still use the explicit recovery methods below.
+
 ### 7.1 StdVector
 
 ```php

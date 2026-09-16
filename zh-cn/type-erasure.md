@@ -66,7 +66,7 @@ $users = ['owner' => new User()];
 $owner = std::object($users['owner'], User::class);
 ```
 
-普通 PHP 数组需要编译期键值约束时使用 [`#[ArrayDef]`](array-def.md)；需要元素类型和原生布局始终固定时使用 [Std 容器](std-containers.md)。
+普通 PHP 数组需要编译期键值约束时使用 [std::list / std::dict 及其类型注解](typed-arrays.md)；需要元素类型和原生布局始终固定时使用 [Std 容器](std-containers.md)。
 
 其他常见动态边界还包括未标注或 `mixed` 参数与返回值、动态函数或方法调用、返回通用 PHP 值的扩展 API，以及未标注类型的对象属性。
 
@@ -86,6 +86,8 @@ $owner = std::object($users['owner'], User::class);
 | Stream | `$value->toStream()` | 恢复流资源 |
 | 高精度数值 | `toBigInt()`、`toDecimal()`、`toBigFloat()` 或对应 `std::*` 构造入口 | 构造指定的固定数值类型 |
 | Std 容器 | `toStdArray()`、`toStdVector()`、`toStdMap()`、`toStdOrderedMap()` | 在首次顶层赋值时建立固定容器类型 |
+
+具名函数和方法参数可通过 [类型注解](std-container-parameters.md) 自动恢复 vector、map 或 ordered map 类型，例如 `#[StdVector(Type::Int)] $values`。PHP 参数类型可省略或为 `box`，不允许 `mixed`；Box 传递及动态调用转换规则保持不变。
 
 ```php
 function consume(mixed $payload): void

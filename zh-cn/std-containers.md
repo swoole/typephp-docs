@@ -360,9 +360,31 @@ u_ref.offsetSet(php::toInt(2L), user2);
 
 ---
 
-## 5. 跨函数引用传递与 toStd* 关键词方法
+## 5. 跨函数引用传递、参数注解与 toStd* 关键词方法
 
 Std 容器以 `php::Var`（Box 资源）形式持有，作为函数参数传递时传递的是 Box 句柄。被调方可通过 `toStd*` 关键词方法（如 `toStdVector`、`toStdArray`）提取容器引用，修改会反映到调用方的原容器——**零拷贝，零分配**。
+
+### 参数类型注解
+
+具名函数和方法参数可以使用内置注解声明类型，由编译器自动生成入口检查及容器引用恢复，无需手写 `toStd*()`：
+
+```php
+function vector_append(#[StdVector(Type::Int)] $values): void
+{
+    $values[] = 42;
+}
+
+function main(): void
+{
+    $values = std::vector(Type::Int);
+    vector_append($values);
+    var_dump($values[0]); // int(42)
+}
+```
+
+PHP 参数类型可省略或声明为兼容的 `box`，不允许显式 `mixed`、`array` 或其他类型。还支持 `StdMap` 和 `StdOrderedMap` 类型注解；定长数组仍使用 `toStdArray()`。完整语法、方法继承规则及动态调用边界见 [类型注解](std-container-parameters.md)。
+
+以下介绍仍然可用的显式 `toStd*()` 方式。无论采用哪种写法，都不会把 PHP 数组自动转换为 std 容器。动态 callable 调用中，已知 std 容器实参仍可能被转换成 PHP 数组；不要把这种调用视为直接传递 Box。
 
 ### 工作机制
 
@@ -472,3 +494,4 @@ function main(): void {
 5. **键类型限制**：`std::map()` / `std::orderedMap()` 的键仅支持 `type_int` 和 `type_string`
 6. **unset 语义差异**：StdVector/StdArray 对元素 `unset` 是重置为零值（`T{}`），不改变容器大小；StdOrderedMap/StdMap 对元素 `unset` 是真正删除（`erase`），会缩减容器大小，之后读取该键会抛出异常
 7. **不可作为引用参数传递**：std 容器变量不可通过 `&$var` 引用方式传递
+8. **参数注解限制**：仅支持具名函数和方法参数，不支持引用、可变、默认值、属性提升、Closure、箭头函数或 Generator 参数；不能同时声明 PHP 参数类型，详见 [类型注解](std-container-parameters.md)。

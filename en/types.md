@@ -94,7 +94,7 @@ $values[10] = ['nested' => true];
 
 The `array` parameter or property type only means that the value itself must be a PHP array; it does not constrain the elements inside the array. Notations such as `list<int>` and `array<string, User>` in PHPDoc are only for IDEs and static analysis tools; ZendVM does not enforce these constraints.
 
-Therefore, ZendPHP does not cover a complete strongly-typed system for variables, parameters, local values, and container elements. On top of PHP-compatible syntax, TypePHP adds compile-time type inference, fixed native types, [`#[ArrayDef]`](array-def.md), [Std Strongly-Typed Containers](std-containers.md), [`#[Immutable]`](immutable.md), and [`#[Native]`](native-class.md) constraints; only these capabilities restrict type changes at compile time, or generate code with fixed C++ storage types.
+Therefore, ZendPHP does not cover a complete strongly-typed system for variables, parameters, local values, and container elements. On top of PHP-compatible syntax, TypePHP adds compile-time type inference, fixed native types, [typed PHP arrays and type annotations](typed-arrays.md), [Std Strongly-Typed Containers](std-containers.md), [`#[Immutable]`](immutable.md), and [`#[Native]`](native-class.md) constraints; only these capabilities restrict type changes at compile time, or generate code with fixed C++ storage types.
 
 ## 1. Type Overview
 
@@ -201,7 +201,7 @@ Big* types are **immutable** — every operation returns a new value and does no
 
 The TypePHP compiler directly maps C++ standard library containers, providing zero-overhead type-safe storage. Key types support only `Type::Int` and `Type::String`.
 
-If the data must remain an ordinary PHP `array` but you want the compiler to check direct element writes on properties, you can use [`#[ArrayDef]`](array-def.md). It does not convert the PHP array into a Std Container; the two have different storage models and dynamic boundaries.
+If the data must remain an ordinary PHP `array` but you want the compiler to check direct element writes on properties, you can use [typed PHP arrays and type annotations](typed-arrays.md). It does not convert the PHP array into a Std Container; the two have different storage models and dynamic boundaries.
 
 ```php
 declare(strict_types=1);

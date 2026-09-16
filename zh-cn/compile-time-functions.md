@@ -636,3 +636,5 @@ function main(bool $flag): void {
 ```
 
 若需要从 `mixed` / `any` 值恢复 Std 容器类型，应使用关键词方法 `toStdArray()`、`toStdVector()`、`toStdMap()`、`toStdOrderedMap()`，它们不属于本文列出的编译期函数。
+
+对于具名函数和方法参数，可以改用 `#[StdVector(Type::Int)] $values`、`#[StdMap(K, V)] $values` 或 `#[StdOrderedMap(K, V)] $values`，由编译器自动恢复容器引用。PHP 参数类型可省略或声明为兼容的 `box`，不允许 `mixed`；它们不负责将 PHP 数组转换为 std 容器。详见 [类型注解](std-container-parameters.md)。

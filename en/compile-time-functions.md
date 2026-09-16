@@ -640,3 +640,5 @@ function main(bool $flag): void {
 ```
 
 If you need to restore a Std container type from a `mixed` / `any` value, use the keyword methods `toStdArray()`, `toStdVector()`, `toStdMap()`, `toStdOrderedMap()`, which are not part of the compile-time functions listed in this document.
+
+Named function and method parameters can instead use `#[StdVector(Type::Int)] $values`, `#[StdMap(K, V)] $values`, or `#[StdOrderedMap(K, V)] $values` to restore the container reference automatically. The PHP parameter type may be omitted or declared as compatible `box`, never `mixed`; it does not convert PHP arrays into std containers. See [Type Annotations](std-container-parameters.md).
