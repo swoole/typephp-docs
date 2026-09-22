@@ -1,6 +1,6 @@
 # 强类型 PHP 数组：std::list / std::dict
 
-`std::list(T)` 和 `std::dict(K, V)` 使用普通 PHP 数组存储，在 TypePHP 静态编译阶段约束键和值的类型。它们不是 Box 包装的 C++ 容器，不需要 `toStd*()`，也不会在运行时扫描元素来检查类型。
+`std::list(T)` 和 `std::dict(K, V)` 使用普通 PHP 数组存储，在 TypePHP 静态编译阶段约束键和值的类型。它们不是 Box 包装的 C++ 容器。工厂创建、同类型赋值和原生参数传递不会扫描整个数组；从普通数组或其他值显式转换时则需要运行时校验。
 
 ## 声明和索引
 
@@ -26,6 +26,28 @@ dict 的键仅支持 `Type::Int` 或 `Type::Str`（`Type::String` 是同义写�
 
 保留 PHP 数组的底层键规则，例如字符串 `'123'` 会存为整数键。TypePHP 在字符串键 dict 的 `foreach` 取键时生成 `str` 转换，保证循环中的 key 为声明的字符串类型，不修改 phpx 或 PHP 数组机制。`array_keys()` 等内置函数仍返回普通 PHP 结果。
 
+## 从现有值转换
+
+使用关键词方法 `toStdList(T)` 或 `toStdDict(K, V)` 将现有值转换为强类型 PHP 数组：
+
+```php
+$raw = [4, 5];
+$list = $raw->toStdList(Type::Int);
+$list[] = 6;
+
+$counts = ['alice' => 2];
+$dict = $counts->toStdDict(Type::Str, Type::Int);
+$dict['bob'] = 3;
+
+$copy = $list->toStdList(Type::Int); // 同契约：普通数组赋值，保留写时复制
+```
+
+若来源已经是完全相同契约的 `StdList` 或 `StdDict`，转换等同于赋值，不遍历元素。普通数组会在运行时逐项检查 key 和 value，要求与声明类型严格匹配；不匹配时抛出 `TypeError`。其他值先执行 `toArray()`，再按普通数组校验。值类型也可以使用非 Native 的 `ClassName::class`，此时逐项检查对象是否为该类或其子类。来源数组不会被修改。
+
+**性能风险：** 需要校验的转换会遍历整个数组，时间复杂度为 O(n)。非数组来源还要先执行 `toArray()`。大数组或循环内反复转换可能明显增加耗时，应谨慎使用；尽量在进入强类型边界时转换一次，并复用结果。
+
+校验依据 PHP 数组实际保存的 key 类型。数字字符串键（例如 `'123'`）会被 PHP 规范化为整数键，因此含有这种键的普通数组无法通过 `toStdDict(Type::Str, ...)` 的严格校验；已是同契约的强类型 dict 则直接赋值，不重新校验。
+
 ## 静态类型约束
 
 ```php
@@ -42,7 +64,7 @@ $list[$textKey->toInt()] = 20; // 用户显式要求将字符串转换为整数
 
 `any` / `var` 可以直接作为 key。TypePHP 自动调用 phpx 内部严格类型检查：list / 整数键 dict 要求运行时值确实为 int，字符串键 dict 要求确实为 string，否则抛出 `TypeError`。不会隐式转换数字字符串、float、bool 等不匹配的运行时类型；读写、存在性检查和删除均遵守同样规则。内部 Exact API 不是用户关键词方法。
 
-非 var 的 key 类型不匹配时直接编译报错。强类型 value 仍要求静态类型匹配（`Type::Any` 值除外）；动态值需要用户显式使用现有的 `toInt()`、`toString()` 等关键词方法。容器不会扫描元素或在原生函数入口重新检查整个数组。
+非 var 的 key 类型不匹配时直接编译报错。强类型 value 仍要求静态类型匹配（`Type::Any` 值除外）；动态值需要用户显式使用现有的 `toInt()`、`toString()` 等关键词方法。普通下标操作及原生函数入口不会重新检查整个数组；显式 `toStdList()` / `toStdDict()` 转换除外。
 
 直接下标读写、`isset()`、`empty()` 和元素 `unset()` 均支持。当前不支持元素引用、引用 `foreach`、嵌套数组写入及 `+=`、`??=`、`++` 等复合修改；请使用类型明确的普通元素赋值。启用 `varint_types` 时，可能溢出并变为 float 的整数表达式也需要显式类型恢复。
 

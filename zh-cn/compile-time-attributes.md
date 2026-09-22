@@ -14,7 +14,7 @@ Attribute 参数支持字面量、常量、非空数组、嵌套数组和 `new` 
 
 `StdVector`、`StdMap` 和 `StdOrderedMap` 在编译期生成参数入口的 Box 类型检查及容器引用恢复，同样不需要运行时扫描 Attribute；生成的类型检查会在每次调用时执行，不会复制容器或逐个转换元素。
 
-`StdList` 和 `StdDict` 声明普通 PHP 数组的类型契约，已知类型的键、值与原生调用参数在编译期检查；`any` / `var` key 自动生成内部严格运行时类型检查。不生成元素扫描或整个数组的参数类型恢复检查。参见 [强类型 PHP 数组](typed-arrays.md)。
+`StdList` 和 `StdDict` 声明普通 PHP 数组的类型契约，已知类型的键、值与原生调用参数在编译期检查；`any` / `var` key 自动生成内部严格运行时类型检查。属性和参数注解本身不生成元素扫描或整个数组的参数类型恢复检查；显式 `toStdList()` / `toStdDict()` 转换会逐项校验。参见 [强类型 PHP 数组](typed-arrays.md)。
 
 `Override`、`MustUse` 和 `Immutable` 只执行编译期静态验证，不生成运行时代码。属性数组的新代码使用 `StdList` / `StdDict` 类型注解；list 显式索引写入不做边界检查。`Native` 在编译期选择独立的原生对象模型。`Hot` 和 `Cold` 在编译期转换为 C++ 编译器的优化提示，不执行运行时 Attribute 检查。`Constructor` 在编译期生成普通构造方法，与手写等价方法没有额外运行时开销。
 

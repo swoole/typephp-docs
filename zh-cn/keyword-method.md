@@ -39,8 +39,12 @@ $repository->find($id)->toObject(User::class);
 | `toStdVector()` | `StdVector` | 元素类型 | 恢复动态 Std 容器 |
 | `toStdMap()` | `StdMap` | 键和值类型 | 恢复哈希映射 |
 | `toStdOrderedMap()` | `StdOrderedMap` | 键和值类型 | 恢复有序映射 |
+| `toStdList()` | 强类型 PHP 数组 | 值类型 | 同契约直接赋值；其他来源逐项检查键和值 |
+| `toStdDict()` | 强类型 PHP 数组 | 键和值类型 | 键类型为 `Type::Int` 或 `Type::Str`，其他规则同 `toStdList()` |
 
 内置关键词方法优先级最高，用户代码不能通过对象扩展或关键词扩展覆盖它们。
+
+`toStdList()` / `toStdDict()` 的校验会遍历整个数组，可能增加明显开销。用法及性能提示见[强类型数组](typed-arrays.md#从现有值转换)。
 
 ## 2. 基础类型转换
 
@@ -251,7 +255,7 @@ $result = $number->sqrt();
 
 ## 7. Std 容器类型接续
 
-Std 容器通过 Box 资源跨越动态函数边界后，会丢失具体模板类型。`toStd*` 方法用于恢复容器类型，并且不会复制底层容器。
+Std 容器通过 Box 资源跨越动态函数边界后，会丢失具体模板类型。以下四种 Box 容器恢复方法用于恢复具体类型，并且不会复制底层容器。`toStdList()` 和 `toStdDict()` 处理普通 PHP 数组，规则见[强类型数组](typed-arrays.md#从现有值转换)。
 
 具名函数和方法参数也可以使用 [类型注解](std-container-parameters.md)，自动完成入口检查及引用恢复，省去函数体中的 `toStd*()`。例如 `function append(#[StdVector(Type::Int)] $values): void`；PHP 参数类型可省略或为 `box`，不允许 `mixed`。局部 Box 值和定长数组仍可使用下面的显式恢复方法。
 
@@ -287,7 +291,7 @@ $map = $value->toStdOrderedMap(
 );
 ```
 
-`toStd*` 方法必须用于变量顶层赋值，目标变量不能再被赋值为其他类型。完整规则见 [Std 容器](std-containers.md)。
+上述四种 Box 容器恢复方法必须用于变量顶层赋值，目标变量不能再被赋值为其他类型。完整规则见 [Std 容器](std-containers.md)。
 
 ## 8. 类型推断与链式调用
 

@@ -19,12 +19,12 @@
 | `std::bigInt($value)` | 创建 BigInt 高精度整数 |
 | `std::decimal($value)` | 创建 Decimal 高精度十进制数 |
 | `std::bigFloat($value)` | 创建 BigFloat 高精度浮点数 |
-| `std::array($type, $size)` | 创建定长 StdArray 容器 |
-| `std::vector($type[, $size])` | 创建动态 StdVector 容器 |
-| `std::map($keyType, $valueType)` | 创建哈希 StdMap 容器 |
-| `std::orderedMap($keyType, $valueType)` | 创建有序 StdOrderedMap 容器 |
-| `std::list($valueType)` | 创建整数键的强类型 PHP 数组，支持追加 |
-| `std::dict($keyType, $valueType)` | 创建指定键、值类型的强类型 PHP 字典，必须显式提供键 |
+| `std::array($type, $size)` / `std::array($values)` | 创建定长 StdArray 容器，或从值推导叶子类型和维度 |
+| `std::vector($type[, $size])` / `std::vector($values)` | 创建动态 StdVector 容器，或从值推导元素类型 |
+| `std::map($keyType, $valueType)` / `std::map($values)` | 创建哈希 StdMap 容器，或推导键和值类型 |
+| `std::orderedMap($keyType, $valueType)` / `std::orderedMap($values)` | 创建有序 StdOrderedMap 容器，或推导键和值类型 |
+| `std::list($valueType)` / `std::list($values)` | 创建整数键的强类型 PHP 数组，支持追加和值类型推导 |
+| `std::dict($keyType, $valueType)` / `std::dict($values)` | 创建指定或推导键、值类型的强类型 PHP 字典，必须显式提供键 |
 
 ## 使用位置与名称写法
 
@@ -421,6 +421,21 @@ function main(): void {
 }
 ```
 
+## 从值初始化并推导类型
+
+所有 Std 容器工厂均可接收一个非空 PHP array 初始化表达式，并根据其中的 key/value 表达式推导契约：
+
+```php
+$array = std::array([[1, 3, 4], [0, 2, 4]]); // StdArray(Int, [2, 3])
+$vector = std::vector([9, 3, 5]);
+$map = std::map(['v1' => 999, 'v2' => 1000]);
+$ordered = std::orderedMap([20 => 'twenty', 10 => 'ten']);
+$list = std::list([9, 3, 5]);
+$dict = std::dict(['v1' => 999, 'v2' => 1000]);
+```
+
+元素及键可以是变量、函数调用或复合表达式，不局限于字面量或常量，但其静态类型必须可确定且完全一致。key 只能推导为 `int` 或 `string`；key/value 为 `var`、`any` 或 `mixed` 时直接编译报错。空数组没有足够的推导信息，也必须使用原有显式类型形式。`std::array` 要求各层为无键、无空洞的矩形数组；vector 同样要求位置连续的输入。map、orderedMap 和 dict 的每一项必须显式提供 key。
+
 ## std::array($type, $size)
 
 `std::array()` 创建定长 StdArray 容器。大小必须是整数字面量，容器只能在函数顶层作用域的变量首次赋值时创建，不能对已有变量重新赋值为新的 StdArray。
@@ -597,7 +612,7 @@ function main(): void {
 
 ## std::list($valueType)
 
-`std::list()` 创建空的强类型 PHP 数字索引数组。底层仍是普通 PHP `array`，不是 Box 包装的 C++ 容器，不需要 `toStd*()`。键固定为 `int`，允许负数、稀疏索引和空洞，不做 vector 式边界检查；`[]` 追加遵循 PHP 数组规则。
+`std::list()` 创建空的强类型 PHP 数字索引数组。底层仍是普通 PHP `array`，不是 Box 包装的 C++ 容器；工厂创建本身无需转换或逐项扫描。键固定为 `int`，允许负数、稀疏索引和空洞，不做 vector 式边界检查；`[]` 追加遵循 PHP 数组规则。
 
 ```php
 function append_values(#[StdList(Type::Int)] array &$values): void {
@@ -721,4 +736,6 @@ function main(bool $flag): void {
 
 若需要从 `mixed` / `any` 值恢复 Std 容器类型，应使用关键词方法 `toStdArray()`、`toStdVector()`、`toStdMap()`、`toStdOrderedMap()`，它们不属于本文列出的编译期函数。
 
-对于具名函数和方法参数，可以改用 `#[StdVector(Type::Int)] $values`、`#[StdMap(K, V)] $values` 或 `#[StdOrderedMap(K, V)] $values`，由编译器自动恢复容器引用。PHP 参数类型可省略或声明为兼容的 `box`，不允许 `mixed`；它们不负责将 PHP 数组转换为 std 容器。详见 [类型注解](std-container-parameters.md)。
+将已有值转换为强类型 PHP 数组时，使用 `toStdList()` 或 `toStdDict()` 关键词方法。同契约来源直接赋值；其他来源需要遍历数组校验键和值，耗时为 O(n)。用法及性能风险见[强类型 PHP 数组](typed-arrays.md#从现有值转换)。
+
+对于具名函数和方法参数，可以改用 `#[StdArray(Type::Int, N)] $values`、`#[StdVector(Type::Int)] $values`、`#[StdMap(K, V)] $values` 或 `#[StdOrderedMap(K, V)] $values`，由编译器自动恢复容器引用。多维 StdArray 使用外层到内层的维度数组，例如 `#[StdArray(Type::Int, [100, 200, 8])]`。PHP 参数类型可省略或声明为兼容的 `box`，不允许 `mixed`；它们不负责将 PHP 数组转换为 std 容器。详见 [类型注解](std-container-parameters.md)。

@@ -160,6 +160,21 @@ function sum(int $n): int {
 
 > **注意**：`null`、`callable`、`iterable` 类型声明在编译阶段会退化为 `php::Var`，无法享受原生类型的性能优势。
 
+### 2.2 callable 参数的函数名称符号
+
+TypePHP 允许在明确声明为 `callable` 的参数或 PHP 内置回调参数位置直接使用函数名称符号：
+
+```php
+function cube(int $value): int
+{
+    return $value * $value * $value;
+}
+
+$result = array_map(cube, [1, 2, 3]);
+```
+
+编译器按 `namespace` 和 `use function` 规则解析 `cube`，然后直接传递完整函数名字符串；不会创建 `Closure`。这是一项 TypePHP 专有语法，仅在 callable 参数位置生效。其他表达式中的裸名称仍按 PHP 规则视为常量。如果编译器能够静态确定存在同名常量（例如 `const` 声明、`use const` 导入或 PHP 内置常量），常量优先，继续使用常量读取或编译期展开逻辑。
+
 ## 3. 高精度数值类型
 
 TypePHP 编译器提供三种高精度数值类型，详见 [math.md](math.md)。

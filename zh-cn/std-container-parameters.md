@@ -1,15 +1,15 @@
 # 类型注解
 
-`StdVector`、`StdMap`、`StdOrderedMap`、`StdList`、`StdDict` 统称为“类型注解”，使用 PHP Attribute 语法声明参数或属性的容器种类及键、值类型。前三种用于 Box 包装的 C++ 容器，编译器自动检查传入的 Box 并恢复容器引用，不再需要在函数体内手写 `toStd*()`。`StdList` / `StdDict` 用于[强类型 PHP 数组](typed-arrays.md)。
+`StdArray`、`StdVector`、`StdMap`、`StdOrderedMap`、`StdList`、`StdDict` 统称为“类型注解”，使用 PHP Attribute 语法声明参数或属性的容器种类及键、值类型。前四种用于 Box 包装的 C++ 容器，编译器自动检查传入的 Box 并恢复容器引用，不再需要在函数体内手写 `toStd*()`。`StdList` / `StdDict` 用于[强类型 PHP 数组](typed-arrays.md)。
 
 类型注解声明容器的具体类型，PHP 参数或属性类型可以省略，也可以声明兼容类型：
 
 | 类型注解 | 兼容的 PHP 类型 |
 |---|---|
-| `StdVector` / `StdMap` / `StdOrderedMap` | `box` |
+| `StdArray` / `StdVector` / `StdMap` / `StdOrderedMap` | `box` |
 | `StdList` / `StdDict` | `array` |
 
-显式 `mixed`、`any`、可空类型、联合类型及其他不兼容类型均不允许。以下 Box 容器的参数规则适用于前三种类型注解；list/dict 的引用参数等规则见[强类型 PHP 数组](typed-arrays.md)。
+显式 `mixed`、`any`、可空类型、联合类型及其他不兼容类型均不允许。以下 Box 容器的参数规则适用于前四种类型注解；list/dict 的引用参数等规则见[强类型 PHP 数组](typed-arrays.md)。
 
 ## 基本用法
 
@@ -17,6 +17,11 @@
 function append(#[StdVector(Type::Int)] box $values): void
 {
     $values[] = 42;
+}
+
+function update_matrix(#[StdArray(Type::Int, [2, 3])] box $matrix): void
+{
+    $matrix[1][2] = 42;
 }
 
 function update(#[StdMap(Type::String, Type::Float)] $prices): void
@@ -39,6 +44,10 @@ function main(): void
     append($values);
     var_dump($values[0]); // int(42)，调用方可观察到修改
 
+    $matrix = std::array(std::array(Type::Int, 3), 2);
+    update_matrix($matrix);
+    var_dump($matrix[1][2]); // int(42)
+
     $prices = std::map(Type::String, Type::Float);
     update($prices);
     var_dump($prices['apple']); // float(2.5)
@@ -51,13 +60,17 @@ function main(): void
 
 | 注解 | 对应容器 | 类型实参 |
 |---|---|---|
+| `#[StdArray(T, N)]` | 一维 `std::array(T, N)` | 叶子元素类型、固定长度 |
+| `#[StdArray(T, [N1, N2, ...])]` | 嵌套 `std::array` | 叶子元素类型、外层到内层的完整维度 |
 | `#[StdVector(T)]` | `std::vector(T)` | 一个元素类型 |
 | `#[StdMap(K, V)]` | `std::map(K, V)` | 键类型、值类型 |
 | `#[StdOrderedMap(K, V)]` | `std::orderedMap(K, V)` | 键类型、值类型 |
 
 `T`、`K`、`V` 是上表中的占位符，实际声明须使用 std 工厂支持的 `Type::*` 常量或 `ClassName::class`，不能使用运行时变量、`"int"` 等字符串或命名实参。值类型参见 [Std 容器](std-containers.md)；键仅支持 `Type::Int` 和 `Type::String`。
 
-`StdVector` 注解不接受初始大小。初始大小仍由调用方的 `std::vector(Type::Int, 100)` 指定，不属于参数类型契约。目前没有 `StdArray` 参数注解，定长数组仍使用 `toStdArray()`。
+`StdArray` 是特殊的类型注解：固定形状属于类型契约。整数 `100` 与单元素维度数组 `[100]` 表示同一个一维类型；`[100, 200, 8]` 按外层到内层表示 `100 × 200 × 8`，完整形状必须匹配。维度只能是位置连续的非负整数字面量数组，不能使用命名/关联键、变量或常量表达式。只有 StdArray 支持这种结构性嵌套。
+
+`StdVector` 注解不接受初始大小。初始大小仍由调用方的 `std::vector(Type::Int, 100)` 指定，不属于参数类型契约。
 
 ## 从 toStd*() 迁移
 
@@ -80,7 +93,7 @@ function append_typed(#[StdVector(Type::Int)] $values): void
 }
 ```
 
-这是类型契约和写法的改进，不是另一种容器存储模型。局部 Box 值的显式类型恢复以及定长数组仍可使用 [toStd* 关键词方法](keyword-method.md)。
+这是类型契约和写法的改进，不是另一种容器存储模型。局部动态 Box 值的显式类型恢复仍可使用 [toStd* 关键词方法](keyword-method.md)。
 
 ## 命名空间与方法
 
@@ -106,7 +119,7 @@ class Consumer implements IntConsumer
 }
 ```
 
-具名函数、方法、接口方法、抽象方法和 trait 方法的参数均可声明。覆盖父类方法或实现接口时，保留容器契约的参数必须使用相同容器种类及键、值类型；不能把 `StdVector(Type::Int)` 改为 `StdVector(Type::Float)`。若子方法将参数放宽为无类型或 `mixed`，则该参数不再自动恢复容器类型。
+具名函数、方法、接口方法、抽象方法和 trait 方法的参数均可声明。覆盖父类方法或实现接口时，保留容器契约的参数必须使用相同容器种类及键、值类型；StdArray 还必须具有相同维度。不能把 `StdVector(Type::Int)` 改为 `StdVector(Type::Float)`，也不能把 `StdArray(Type::Int, [2, 3])` 改成 `[3, 2]`。若子方法将参数放宽为无类型或 `mixed`，则该参数不再自动恢复容器类型。
 
 ## 调用边界与类型检查
 
@@ -132,6 +145,7 @@ function main(): void
 ## 当前限制
 
 - 一个参数或属性只能有一个容器类型注解，不允许重复或混用；PHP 类型只能省略或为 `box`，例如 `#[StdVector(Type::Int)] mixed $values` 会产生编译错误。
+- StdArray 的维度和叶子类型必须在编译期确定；本功能恢复完整容器参数，不支持把部分索引得到的子数组作为独立的 StdArray 参数借用传递。
 - 不支持引用参数、可变参数、带默认值的参数和构造器属性提升参数。
 - 不支持 Closure、箭头函数或 Generator 的参数，也不提供返回值的泛型类型声明。
 - 容器不能保存 Native 对象并通过此 Box 参数边界传递；原有 [Native 对象逃逸限制](native-class.md) 不变。
@@ -144,6 +158,7 @@ function main(): void
 ```php
 class State
 {
+    #[StdArray(Type::Int, [2, 3])] public box $matrix;
     #[StdVector(Type::Int)] public box $values;
     #[StdMap(Type::Str, Type::Int)] public $counts;
     #[StdOrderedMap(Type::Int, User::class)] public box $users;

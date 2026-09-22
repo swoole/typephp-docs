@@ -39,8 +39,12 @@ $repository->find($id)->toObject(User::class);
 | `toStdVector()` | `StdVector` | element type | restore a dynamic Std container |
 | `toStdMap()` | `StdMap` | key and value types | restore a hash map |
 | `toStdOrderedMap()` | `StdOrderedMap` | key and value types | restore an ordered map |
+| `toStdList()` | typed PHP array | value type | assign directly for an identical contract; otherwise check every key and value |
+| `toStdDict()` | typed PHP array | key and value types | keys are `Type::Int` or `Type::Str`; otherwise follows `toStdList()` |
 
 Built-in keyword methods have the highest priority, and user code cannot override them through object extensions or keyword extensions.
+
+`toStdList()` / `toStdDict()` validation traverses the entire array and can add substantial cost. See [Typed PHP Arrays](typed-arrays.md#converting-existing-values) for usage and performance guidance.
 
 ## 2. Basic Type Conversion
 
@@ -251,7 +255,7 @@ For conversion rules, precision, and limitations between high-precision types, s
 
 ## 7. Std Container Type Continuation
 
-After a Std container crosses a dynamic function boundary through a Box resource, it loses its concrete template type. The `toStd*` methods are used to restore the container type, and they do not copy the underlying container.
+After a Std container crosses a dynamic function boundary through a Box resource, it loses its concrete template type. The four Box container recovery methods below restore that type without copying the underlying container. `toStdList()` and `toStdDict()` work with ordinary PHP arrays; see [Typed PHP Arrays](typed-arrays.md#converting-existing-values).
 
 Named function and method parameters can also use [Type Annotations](std-container-parameters.md) to generate entry checks and reference recovery without a `toStd*()` call in the body. For example, `function append(#[StdVector(Type::Int)] $values): void`; omit the PHP parameter type or declare `box`; explicit `mixed` is rejected. Local Box values and fixed-length arrays can still use the explicit recovery methods below.
 
@@ -287,7 +291,7 @@ $map = $value->toStdOrderedMap(
 );
 ```
 
-The `toStd*` methods must be used for top-level variable assignment, and the target variable cannot be reassigned to another type. For the complete rules, see [Std Containers](std-containers.md).
+These four Box container recovery methods must be used for top-level variable assignment, and the target variable cannot be reassigned to another type. For the complete rules, see [Std Containers](std-containers.md).
 
 ## 8. Type Inference and Chaining
 

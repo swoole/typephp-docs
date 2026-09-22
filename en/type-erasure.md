@@ -86,8 +86,9 @@ Choose the recovery operation according to the required destination type:
 | Stream | `$value->toStream()` | Recovers a stream resource |
 | High-precision number | `toBigInt()`, `toDecimal()`, `toBigFloat()` or matching `std::*` constructor | Constructs the selected fixed numeric type |
 | Std container | `toStdArray()`, `toStdVector()`, `toStdMap()`, `toStdOrderedMap()` | Establishes a fixed container type on its first top-level assignment |
+| Typed PHP array | `$value->toStdList(T)`, `$value->toStdDict(K, V)` | Assigns an identical contract directly; otherwise performs O(n) key and value checks, after `toArray()` for non-arrays |
 
-Named function and method parameters can use [Type Annotations](std-container-parameters.md) to restore vector, map, or ordered-map types automatically, for example `#[StdVector(Type::Int)] $values`. The PHP parameter type may be omitted or declared as `box`, never `mixed`; Box passing and dynamic-call conversion rules remain unchanged.
+Named function and method parameters can use [Type Annotations](std-container-parameters.md) to restore array, vector, map, or ordered-map types automatically, for example `#[StdArray(Type::Int, [2, 3])] $values` or `#[StdVector(Type::Int)] $values`. The PHP parameter type may be omitted or declared as `box`, never `mixed`; Box passing and dynamic-call conversion rules remain unchanged.
 
 ```php
 function consume(mixed $payload): void

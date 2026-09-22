@@ -362,7 +362,7 @@ u_ref.offsetSet(php::toInt(2L), user2);
 
 ## 5. Cross-Function Reference Passing, Parameter Attributes, and toStd* Keyword Methods
 
-Std containers are held as `php::Var` (Box resource); when passed as function arguments, the Box handle is passed. The callee can extract the container reference via `toStd*` keyword methods (such as `toStdVector`, `toStdArray`), and modifications are reflected in the caller's original container — **zero copy, zero allocation**.
+The C++ Std containers on this page are held as `php::Var` (Box resource); when passed as function arguments, the Box handle is passed. The callee can extract the container reference through Box recovery methods such as `toStdVector()` and `toStdArray()`, and modifications are reflected in the caller's original container — **zero copy, zero allocation**. Typed PHP array conversion through `toStdList()` / `toStdDict()` checks each entry; see [Typed PHP Arrays](typed-arrays.md#converting-existing-values).
 
 ### Parameter Type Attributes
 
@@ -487,7 +487,7 @@ function main(): void {
 
 ## 6. Limitations
 
-1. **Top-level scope declaration**: std containers and `toStd*` conversion methods can only be declared at the top-level scope of a function, not in nested blocks such as `if`/`for`/`while`
+1. **Top-level scope declaration**: the C++ Std containers on this page and their Box recovery methods can only be declared at the top-level scope of a function, not in nested blocks such as `if`/`for`/`while`
 2. **Cannot be reassigned**: once a variable is declared as a certain std container type, it cannot be reassigned to a container of a different type
 3. **Nested access not supported (non-Array types)**: `$vec[a][b]` is only supported by StdArray; StdVector/StdOrderedMap/StdMap do not support it
 4. **Cannot delete in foreach**: when StdOrderedMap/StdMap are in a foreach loop, their elements cannot be `unset`

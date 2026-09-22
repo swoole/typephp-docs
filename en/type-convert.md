@@ -259,9 +259,9 @@ function object_convert(mixed $input): void
 
 ---
 
-## 6. Std Container Type Conversion
+## 6. Std Container and Typed PHP Array Conversion
 
-The `toStd*` methods convert a variable of type `php::Var` into the specified C++ standard library container type. These methods **must be called at the top-level scope** and **cannot reassign** an already-declared variable.
+`toStdArray()`, `toStdVector()`, `toStdMap()`, and `toStdOrderedMap()` recover a Box-backed C++ standard library container. These four methods **must be called at the top-level scope** and **cannot reassign** an already-declared variable.
 
 ```php
 declare(strict_types=1);
@@ -287,12 +287,16 @@ function std_convert(): void
 | `toStdVector(type)` | `php::StdVector<T>` | index is `int` | Dynamic array |
 | `toStdOrderedMap(ktype, vtype)` | `php::StdOrderedMap<K, T>` | `int` or `string` | Ordered map |
 | `toStdMap(ktype, vtype)` | `php::StdMap<K, T>` | `int` or `string` | Hash map |
+| `toStdList(vtype)` | typed PHP array | `int` | Direct assignment for an identical contract; otherwise checks each entry |
+| `toStdDict(ktype, vtype)` | typed PHP array | `Type::Int` or `Type::Str` | Direct assignment for an identical contract; otherwise checks each entry |
 
-### Usage Limitations
+`toStdList()` and `toStdDict()` retain ordinary PHP array storage. A source with the requested typed-array contract is assigned directly. An ordinary array has every key and value checked strictly; other values first pass through `toArray()` and then receive the same checks. Validation traverses the whole array in **O(n)** time, so use it carefully for large arrays or inside loops. See [Typed PHP Arrays](typed-arrays.md#converting-existing-values).
 
-- **Must be at top-level scope**: `toStd*` can only be called in the outermost scope of a function body, not in nested blocks such as `if` / `for`
-- **Cannot reassign**: a variable assigned via `toStd*` cannot be reassigned to another type
-- **Source variable must already exist**: `toStd*` must act on a variable that is already defined and has a value
+### C++ Std Container Recovery Limitations
+
+- **Must be at top-level scope**: the four C++ Std container recovery methods can only be called in the outermost scope of a function body, not in nested blocks such as `if` / `for`
+- **Cannot reassign**: a variable assigned through these methods cannot be reassigned to another type
+- **Source variable must already exist**: these methods must act on a variable that is already defined and has a value
 
 ---
 

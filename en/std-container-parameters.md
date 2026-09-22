@@ -1,15 +1,15 @@
 # Type Annotations
 
-`StdVector`, `StdMap`, `StdOrderedMap`, `StdList`, and `StdDict` are collectively called "type annotations". They use PHP Attribute syntax to declare a parameter or property's container kind and key/value types. The first three describe Box-wrapped C++ containers: the compiler checks the incoming Box and restores its reference automatically, without a `toStd*()` call in the function body. `StdList` / `StdDict` describe [typed PHP arrays](typed-arrays.md).
+`StdArray`, `StdVector`, `StdMap`, `StdOrderedMap`, `StdList`, and `StdDict` are collectively called "type annotations". They use PHP Attribute syntax to declare a parameter or property's container kind and key/value types. The first four describe Box-wrapped C++ containers: the compiler checks the incoming Box and restores its reference automatically, without a `toStd*()` call in the function body. `StdList` / `StdDict` describe [typed PHP arrays](typed-arrays.md).
 
 The PHP parameter or property type may be omitted or declared as a compatible storage type:
 
 | Type annotation | Compatible PHP type |
 |---|---|
-| `StdVector` / `StdMap` / `StdOrderedMap` | `box` |
+| `StdArray` / `StdVector` / `StdMap` / `StdOrderedMap` | `box` |
 | `StdList` / `StdDict` | `array` |
 
-Explicit `mixed`, `any`, nullable types, unions, and other incompatible types are rejected. The Box-container parameter rules below apply to the first three annotations; see [typed PHP arrays](typed-arrays.md) for list/dict reference parameters and other rules.
+Explicit `mixed`, `any`, nullable types, unions, and other incompatible types are rejected. The Box-container parameter rules below apply to the first four annotations; see [typed PHP arrays](typed-arrays.md) for list/dict reference parameters and other rules.
 
 ## Basic Usage
 
@@ -17,6 +17,11 @@ Explicit `mixed`, `any`, nullable types, unions, and other incompatible types ar
 function append(#[StdVector(Type::Int)] box $values): void
 {
     $values[] = 42;
+}
+
+function update_matrix(#[StdArray(Type::Int, [2, 3])] box $matrix): void
+{
+    $matrix[1][2] = 42;
 }
 
 function update(#[StdMap(Type::String, Type::Float)] $prices): void
@@ -39,6 +44,10 @@ function main(): void
     append($values);
     var_dump($values[0]); // int(42), the caller observes the modification
 
+    $matrix = std::array(std::array(Type::Int, 3), 2);
+    update_matrix($matrix);
+    var_dump($matrix[1][2]); // int(42)
+
     $prices = std::map(Type::String, Type::Float);
     update($prices);
     var_dump($prices['apple']); // float(2.5)
@@ -51,13 +60,17 @@ function main(): void
 
 | Type annotation | Corresponding container | Type arguments |
 |---|---|---|
+| `#[StdArray(T, N)]` | One-dimensional `std::array(T, N)` | Leaf element type and fixed length |
+| `#[StdArray(T, [N1, N2, ...])]` | Nested `std::array` | Leaf element type and full outer-to-inner shape |
 | `#[StdVector(T)]` | `std::vector(T)` | One element type |
 | `#[StdMap(K, V)]` | `std::map(K, V)` | Key type, value type |
 | `#[StdOrderedMap(K, V)]` | `std::orderedMap(K, V)` | Key type, value type |
 
 `T`, `K`, and `V` are placeholders in this table. Actual declarations require `Type::*` constants or `ClassName::class` supported by the std factories, not runtime variables, strings such as `"int"`, or named arguments. See [Std Containers](std-containers.md) for value types; keys only support `Type::Int` and `Type::String`.
 
-The `StdVector` type annotation does not accept an initial size. The caller can still specify one through `std::vector(Type::Int, 100)`; it is not part of the parameter type contract. There is currently no `StdArray` parameter type annotation; use `toStdArray()` for fixed-length arrays.
+StdArray is a special type annotation: fixed shape is part of its contract. Integer `100` and the one-element dimension array `[100]` are the same one-dimensional type. `[100, 200, 8]` means `100 × 200 × 8` from outermost to innermost, and the full shape must match. Dimensions are a positional array of non-negative integer literals; named/associative keys, variables, and constant expressions are rejected. Only StdArray supports this structural nesting.
+
+The `StdVector` type annotation does not accept an initial size. The caller can still specify one through `std::vector(Type::Int, 100)`; it is not part of the parameter type contract.
 
 ## Migrating from toStd*()
 
@@ -80,7 +93,7 @@ function append_typed(#[StdVector(Type::Int)] $values): void
 }
 ```
 
-This improves the type contract and syntax; it does not introduce a different container storage model. Explicit recovery of local Box values and fixed-length arrays can still use the [toStd* keyword methods](keyword-method.md).
+This improves the type contract and syntax; it does not introduce a different container storage model. Explicit recovery of dynamically typed local Box values can still use the [toStd* keyword methods](keyword-method.md).
 
 ## Namespaces and Methods
 
@@ -106,7 +119,7 @@ class Consumer implements IntConsumer
 }
 ```
 
-Parameters of named functions, methods, interface methods, abstract methods, and trait methods are supported. An override or interface implementation that retains a container contract must use the same container kind, key type, and value type: it cannot replace `StdVector(Type::Int)` with `StdVector(Type::Float)`. If a child method widens the parameter to an untyped or `mixed` parameter, automatic container type recovery no longer applies to that parameter.
+Parameters of named functions, methods, interface methods, abstract methods, and trait methods are supported. An override or interface implementation that retains a container contract must use the same container kind, key type, and value type; StdArray also requires the same dimensions. It cannot replace `StdVector(Type::Int)` with `StdVector(Type::Float)`, or `StdArray(Type::Int, [2, 3])` with `[3, 2]`. If a child method widens the parameter to an untyped or `mixed` parameter, automatic container type recovery no longer applies to that parameter.
 
 ## Call Boundaries and Type Checking
 
@@ -132,6 +145,7 @@ function main(): void
 ## Current Limitations
 
 - Only one type annotation is allowed per parameter or property; duplicates or combinations are rejected. The PHP type may be omitted or declared as `box`: `#[StdVector(Type::Int)] mixed $values` is a compilation error.
+- StdArray dimensions and leaf type are compile-time constants. This feature restores complete-container parameters; it does not support borrowing a subarray produced by partial indexing as an independent StdArray parameter.
 - Reference, variadic, defaulted, and constructor-promoted parameters are unsupported.
 - Closure, arrow-function, and Generator parameters are unsupported. Generic return-value declarations are not provided.
 - Containers cannot hold Native objects across this Box parameter boundary; existing [Native object escape restrictions](native-class.md) remain unchanged.
@@ -144,6 +158,7 @@ The contract is preserved in incremental compilation's declaration cache and exp
 ```php
 class State
 {
+    #[StdArray(Type::Int, [2, 3])] public box $matrix;
     #[StdVector(Type::Int)] public box $values;
     #[StdMap(Type::Str, Type::Int)] public $counts;
     #[StdOrderedMap(Type::Int, User::class)] public box $users;

@@ -259,9 +259,9 @@ function object_convert(mixed $input): void
 
 ---
 
-## 6. Std 容器类型转换
+## 6. Std 容器与强类型 PHP 数组转换
 
-`toStd*` 方法将 `php::Var` 类型的变量转换为指定的 C++ 标准库容器类型。这类方法**必须在顶层作用域**调用，且**不能重复赋值**已声明的变量。
+`toStdArray()`、`toStdVector()`、`toStdMap()` 和 `toStdOrderedMap()` 将持有 Box 的变量恢复为指定的 C++ 标准库容器类型。这四种恢复方法**必须在顶层作用域**调用，且**不能重复赋值**已声明的变量。
 
 ```php
 declare(strict_types=1);
@@ -287,12 +287,16 @@ function std_convert(): void
 | `toStdVector(type)` | `php::StdVector<T>` | 索引为 `int` | 动态数组 |
 | `toStdOrderedMap(ktype, vtype)` | `php::StdOrderedMap<K, T>` | `int` 或 `string` | 有序映射 |
 | `toStdMap(ktype, vtype)` | `php::StdMap<K, T>` | `int` 或 `string` | 哈希映射 |
+| `toStdList(vtype)` | 强类型 PHP 数组 | `int` | 同契约直接赋值；其他来源逐项校验 |
+| `toStdDict(ktype, vtype)` | 强类型 PHP 数组 | `Type::Int` 或 `Type::Str` | 同契约直接赋值；其他来源逐项校验 |
 
-### 使用限制
+`toStdList()` 和 `toStdDict()` 保留普通 PHP 数组存储。来源已是要求的强类型数组时，它们等同于赋值；普通数组会严格检查每个键和值；其他值先经 `toArray()` 再校验。校验会遍历整个数组，时间复杂度为 **O(n)**，应谨慎用于大数组或循环。详见[强类型数组](typed-arrays.md#从现有值转换)。
 
-- **必须在顶层作用域**：`toStd*` 只能在函数体的最外层作用域调用，不能在 `if` / `for` 等嵌套块中调用
-- **不能重复赋值**：被 `toStd*` 赋值的变量不能再被赋值为其他类型
-- **源变量必须已存在**：`toStd*` 必须作用在一个已定义且有值的变量上
+### C++ Std 容器恢复方法的使用限制
+
+- **必须在顶层作用域**：上述四种 C++ Std 容器恢复方法只能在函数体的最外层作用域调用，不能在 `if` / `for` 等嵌套块中调用
+- **不能重复赋值**：被这些方法赋值的变量不能再被赋值为其他类型
+- **源变量必须已存在**：这些方法必须作用在一个已定义且有值的变量上
 
 ---
 

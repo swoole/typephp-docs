@@ -19,12 +19,12 @@ Keyword methods are a separate syntax system and are not included in the compile
 | `std::bigInt($value)` | creates a BigInt high-precision integer |
 | `std::decimal($value)` | creates a Decimal high-precision decimal number |
 | `std::bigFloat($value)` | creates a BigFloat high-precision floating-point number |
-| `std::array($type, $size)` | creates a fixed-size StdArray container |
-| `std::vector($type[, $size])` | creates a dynamic StdVector container |
-| `std::map($keyType, $valueType)` | creates a hash StdMap container |
-| `std::orderedMap($keyType, $valueType)` | creates an ordered StdOrderedMap container |
-| `std::list($valueType)` | creates an integer-key typed PHP array supporting append |
-| `std::dict($keyType, $valueType)` | creates a typed PHP dictionary requiring explicit keys |
+| `std::array($type, $size)` / `std::array($values)` | creates a fixed-size StdArray, or infers its leaf type and shape from values |
+| `std::vector($type[, $size])` / `std::vector($values)` | creates a dynamic StdVector, or infers its element type from values |
+| `std::map($keyType, $valueType)` / `std::map($values)` | creates a hash StdMap, or infers key and value types |
+| `std::orderedMap($keyType, $valueType)` / `std::orderedMap($values)` | creates an ordered StdOrderedMap, or infers key and value types |
+| `std::list($valueType)` / `std::list($values)` | creates an integer-key typed PHP array with append and value-type inference |
+| `std::dict($keyType, $valueType)` / `std::dict($values)` | creates a typed PHP dictionary with declared or inferred key/value types |
 
 ## Usage Positions and Name Spelling
 
@@ -425,6 +425,21 @@ function main(): void {
 }
 ```
 
+## Value initialization and type inference
+
+Every Std container factory accepts one non-empty PHP array initializer expression and infers its contract from the key/value expressions:
+
+```php
+$array = std::array([[1, 3, 4], [0, 2, 4]]); // StdArray(Int, [2, 3])
+$vector = std::vector([9, 3, 5]);
+$map = std::map(['v1' => 999, 'v2' => 1000]);
+$ordered = std::orderedMap([20 => 'twenty', 10 => 'ten']);
+$list = std::list([9, 3, 5]);
+$dict = std::dict(['v1' => 999, 'v2' => 1000]);
+```
+
+Keys and values may be variables, calls, or compound expressions rather than only literals or constants, but their static types must be known and exactly identical. Keys can only infer as `int` or `string`; a `var`, `any`, or `mixed` key/value is a compile error. An empty array has insufficient inference information and must use the original explicit-type form. `std::array` requires an unkeyed, hole-free rectangular shape; vector input is positional as well. Every map, orderedMap, and dict item must provide an explicit key.
+
 ## std::array($type, $size)
 
 `std::array()` creates a fixed-size StdArray container. The size must be an integer literal, and the container can only be created at the first assignment of a variable in the top-level scope of a function; an existing variable cannot be reassigned to a new StdArray.
@@ -601,7 +616,7 @@ function main(): void {
 
 ## std::list($valueType)
 
-`std::list()` creates an empty typed PHP integer-key array. Storage remains an ordinary PHP `array`, not a Box-wrapped C++ container, so no `toStd*()` recovery is needed. Keys are `int`, including negative and sparse indices and holes, without vector-style bounds checks. Appending with `[]` follows PHP array semantics.
+`std::list()` creates an empty typed PHP integer-key array. Storage remains an ordinary PHP `array`, not a Box-wrapped C++ container; factory creation itself needs no conversion or element scan. Keys are `int`, including negative and sparse indices and holes, without vector-style bounds checks. Appending with `[]` follows PHP array semantics.
 
 ```php
 function append_values(#[StdList(Type::Int)] array &$values): void {
@@ -725,4 +740,6 @@ function main(bool $flag): void {
 
 If you need to restore a Std container type from a `mixed` / `any` value, use the keyword methods `toStdArray()`, `toStdVector()`, `toStdMap()`, `toStdOrderedMap()`, which are not part of the compile-time functions listed in this document.
 
-Named function and method parameters can instead use `#[StdVector(Type::Int)] $values`, `#[StdMap(K, V)] $values`, or `#[StdOrderedMap(K, V)] $values` to restore the container reference automatically. The PHP parameter type may be omitted or declared as compatible `box`, never `mixed`; it does not convert PHP arrays into std containers. See [Type Annotations](std-container-parameters.md).
+To convert an existing value into a typed PHP array, use the `toStdList()` or `toStdDict()` keyword method. An identical contract assigns directly; other sources require an O(n) scan that checks every key and value. See [Typed PHP Arrays](typed-arrays.md#converting-existing-values) for usage and performance risks.
+
+Named function and method parameters can instead use `#[StdArray(Type::Int, N)] $values`, `#[StdVector(Type::Int)] $values`, `#[StdMap(K, V)] $values`, or `#[StdOrderedMap(K, V)] $values` to restore the container reference automatically. Multidimensional StdArray uses outer-to-inner dimensions, for example `#[StdArray(Type::Int, [100, 200, 8])]`. The PHP parameter type may be omitted or declared as compatible `box`, never `mixed`; it does not convert PHP arrays into std containers. See [Type Annotations](std-container-parameters.md).

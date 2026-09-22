@@ -86,8 +86,9 @@ $owner = std::object($users['owner'], User::class);
 | Stream | `$value->toStream()` | 恢复流资源 |
 | 高精度数值 | `toBigInt()`、`toDecimal()`、`toBigFloat()` 或对应 `std::*` 构造入口 | 构造指定的固定数值类型 |
 | Std 容器 | `toStdArray()`、`toStdVector()`、`toStdMap()`、`toStdOrderedMap()` | 在首次顶层赋值时建立固定容器类型 |
+| 强类型 PHP 数组 | `$value->toStdList(T)`、`$value->toStdDict(K, V)` | 同契约直接赋值；否则执行 O(n) 的键和值校验，非数组值先调用 `toArray()` |
 
-具名函数和方法参数可通过 [类型注解](std-container-parameters.md) 自动恢复 vector、map 或 ordered map 类型，例如 `#[StdVector(Type::Int)] $values`。PHP 参数类型可省略或为 `box`，不允许 `mixed`；Box 传递及动态调用转换规则保持不变。
+具名函数和方法参数可通过 [类型注解](std-container-parameters.md) 自动恢复 array、vector、map 或 ordered map 类型，例如 `#[StdArray(Type::Int, [2, 3])] $values`、`#[StdVector(Type::Int)] $values`。PHP 参数类型可省略或为 `box`，不允许 `mixed`；Box 传递及动态调用转换规则保持不变。
 
 ```php
 function consume(mixed $payload): void

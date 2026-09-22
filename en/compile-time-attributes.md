@@ -14,7 +14,7 @@ Therefore, the mechanism of these generating Attributes is itself **zero runtime
 
 `StdVector`, `StdMap`, and `StdOrderedMap` generate entry-point Box type checks and container reference recovery at compile time, without runtime Attribute scanning. The generated checks execute on each call and do not copy the container or convert its elements individually.
 
-`StdList` and `StdDict` declare contracts for ordinary PHP arrays. Statically known keys, values, and native call arguments are checked at compile time; `any` / `var` keys receive internal strict runtime type checks. There are no element scans or whole-array parameter recovery checks. See [Typed PHP Arrays](typed-arrays.md).
+`StdList` and `StdDict` declare contracts for ordinary PHP arrays. Statically known keys, values, and native call arguments are checked at compile time; `any` / `var` keys receive internal strict runtime type checks. Attribute and parameter annotations do not scan elements or recover whole-array types at runtime; explicit `toStdList()` / `toStdDict()` conversion does check each entry. See [Typed PHP Arrays](typed-arrays.md).
 
 `Override`, `MustUse`, and `Immutable` only perform compile-time static validation and generate no runtime code. Use `StdList` / `StdDict` type annotations for array properties in new code; list index writes have no bounds checks. `Native` selects an independent native object model at compile time. `Hot` and `Cold` become C++ optimization hints without runtime Attribute checks. `Constructor` generates an ordinary constructor, with no extra runtime overhead compared to an equivalent hand-written one.
 

@@ -160,6 +160,21 @@ Use `std::any($value)` when one expression needs dynamic storage. Use `use varin
 
 > **Note**: The `null`, `callable`, and `iterable` type declarations degrade to `php::Var` at compile time and cannot benefit from the performance advantages of native types.
 
+### 2.2 Function-name symbols in callable arguments
+
+TypePHP permits a function-name symbol directly in a parameter explicitly declared as `callable`, or in a PHP built-in callback parameter:
+
+```php
+function cube(int $value): int
+{
+    return $value * $value * $value;
+}
+
+$result = array_map(cube, [1, 2, 3]);
+```
+
+The compiler applies `namespace` and `use function` resolution, then passes the fully qualified function-name string directly; it does not create a `Closure`. This is TypePHP-specific syntax and applies only in callable argument positions. A bare name in any other expression remains a PHP constant reference. If the compiler can statically establish a same-name constant (for example, a `const` declaration, a `use const` import, or a PHP built-in constant), the constant takes precedence and follows the normal lookup or compile-time expansion path.
+
 ## 3. High-Precision Numeric Types
 
 The TypePHP compiler provides three high-precision numeric types. See [math.md](math.md) for details.

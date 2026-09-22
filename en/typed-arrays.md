@@ -1,6 +1,6 @@
 # Typed PHP Arrays: std::list / std::dict
 
-`std::list(T)` and `std::dict(K, V)` use ordinary PHP arrays with key and value contracts enforced during TypePHP's static compilation. They are not Box-wrapped C++ containers, require no `toStd*()` recovery, and perform no runtime element scans.
+`std::list(T)` and `std::dict(K, V)` use ordinary PHP arrays with key and value contracts enforced during TypePHP's static compilation. They are not Box-wrapped C++ containers. Factory creation, assignment between identical contracts, and native parameter passing do not scan the whole array; explicit conversion from an ordinary array or another value does require runtime validation.
 
 ## Declaration and Indexing
 
@@ -26,6 +26,28 @@ Dict keys support only `Type::Int` and `Type::Str` (`Type::String` is an alias).
 
 PHP's underlying key rules are preserved: a numeric string such as `'123'` is stored as an integer key. For string-key dicts, TypePHP emits a conversion to `str` when fetching keys in `foreach`, keeping loop keys at their declared type without changing PHPX or PHP array internals. Built-ins such as `array_keys()` retain their ordinary PHP results.
 
+## Converting Existing Values
+
+Use the `toStdList(T)` or `toStdDict(K, V)` keyword method to convert an existing value into a typed PHP array:
+
+```php
+$raw = [4, 5];
+$list = $raw->toStdList(Type::Int);
+$list[] = 6;
+
+$counts = ['alice' => 2];
+$dict = $counts->toStdDict(Type::Str, Type::Int);
+$dict['bob'] = 3;
+
+$copy = $list->toStdList(Type::Int); // Identical contract: ordinary copy-on-write assignment
+```
+
+If the source is already a `StdList` or `StdDict` with exactly the requested contract, conversion is ordinary assignment and does not scan elements. An ordinary array has every key and value checked strictly at runtime; a mismatch throws `TypeError`. Other values first pass through `toArray()`, then receive the same array checks. A non-Native `ClassName::class` value type checks each object against that class or its subclasses. Conversion leaves the source array unchanged.
+
+**Performance risk:** A conversion that requires validation traverses the entire array, taking O(n) time. Non-array sources also run `toArray()` first. Repeated conversion of large arrays, especially inside loops, can noticeably increase runtime. Use it carefully: convert once when entering a typed boundary and reuse the result where possible.
+
+Validation uses the key types actually stored by PHP. Numeric string keys such as `'123'` become integer keys, so an ordinary array containing them fails strict `toStdDict(Type::Str, ...)` validation. A typed dict with the same contract is assigned directly without another check.
+
 ## Static Type Constraints
 
 ```php
@@ -42,7 +64,7 @@ $list[$textKey->toInt()] = 20; // Explicitly request string-to-integer conversio
 
 An `any` / `var` can directly supply a key. TypePHP inserts an internal PHPX strict check: lists and integer-key dicts require an actual runtime int; string-key dicts require an actual string. Other runtime types raise `TypeError`, without coercing numeric strings, floats, or booleans. Reads, writes, presence checks, and deletions follow the same rule. Internal Exact APIs are not user keyword methods.
 
-A mismatched non-var key is a compile error. Strongly typed values still require matching static types, except for `Type::Any` values; dynamic values require explicit use of existing keyword methods such as `toInt()` or `toString()`. Containers perform no element scans or whole-array checks at native function entry.
+A mismatched non-var key is a compile error. Strongly typed values still require matching static types, except for `Type::Any` values; dynamic values require explicit use of existing keyword methods such as `toInt()` or `toString()`. Ordinary indexed operations and native function entry perform no whole-array checks; explicit `toStdList()` / `toStdDict()` conversion is the exception.
 
 Direct indexed reads and assignments, `isset()`, `empty()`, and element `unset()` are supported. Element references, reference `foreach`, nested array writes, and compound mutations such as `+=`, `??=`, and `++` are currently unsupported. Use ordinary element assignments with explicit types instead. With `varint_types` enabled, integer expressions that may widen to float also require explicit type recovery.
 

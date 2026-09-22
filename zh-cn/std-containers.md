@@ -362,7 +362,7 @@ u_ref.offsetSet(php::toInt(2L), user2);
 
 ## 5. 跨函数引用传递、参数注解与 toStd* 关键词方法
 
-Std 容器以 `php::Var`（Box 资源）形式持有，作为函数参数传递时传递的是 Box 句柄。被调方可通过 `toStd*` 关键词方法（如 `toStdVector`、`toStdArray`）提取容器引用，修改会反映到调用方的原容器——**零拷贝，零分配**。
+本页的 C++ Std 容器以 `php::Var`（Box 资源）形式持有，作为函数参数传递时传递的是 Box 句柄。被调方可通过 `toStdVector()`、`toStdArray()` 等 Box 容器恢复方法提取容器引用，修改会反映到调用方的原容器——**零拷贝，零分配**。强类型 PHP 数组的 `toStdList()` / `toStdDict()` 转换会逐项校验，见[强类型数组](typed-arrays.md#从现有值转换)。
 
 ### 参数类型注解
 
@@ -487,7 +487,7 @@ function main(): void {
 
 ## 6. 限制
 
-1. **顶层作用域声明**：std 容器和 `toStd*` 转换方法只能在函数顶层作用域声明，不能在 `if`/`for`/`while` 等嵌套块中
+1. **顶层作用域声明**：本页的 C++ Std 容器及其 Box 恢复方法只能在函数顶层作用域声明，不能在 `if`/`for`/`while` 等嵌套块中
 2. **不可重新赋值**：变量一旦声明为某种 std 容器类型，不能重新赋值给不同类型的容器
 3. **不支持嵌套访问（非 Array 类型）**：`$vec[a][b]` 仅 StdArray 支持嵌套；StdVector/StdOrderedMap/StdMap 不支持
 4. **foreach 中不可删除**：StdOrderedMap/StdMap 处于 foreach 循环中时，不可 `unset` 其元素
