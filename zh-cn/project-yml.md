@@ -36,6 +36,11 @@ ignore:
   - src/tests/
   - src/vendor/
 
+# 将依赖和只读资源打包进发布用可执行文件
+embedded-files:
+  - vendor/
+  - resources/
+
 # 构建目录（相对路径基于当前 YAML 文件所在目录解析）
 build-dir: build/out
 
@@ -124,6 +129,7 @@ resource:
 | `sanitize` | `string` | 启用 Sanitizer，等价于 `--sanitize`，例如 `address`、`undefined` |
 | `sources` | `array` | 源码文件或目录列表。支持 `.php`、`.cpp`、`.c`、`.s`、`.m`、`.mm`。可使用 `if` + `path` 按 PHP 版本或操作系统条件加载 |
 | `ignore` | `array` | 忽略的文件或目录。每项必须是明确路径，**不支持通配符和正则表达式**；目录项会递归排除其下所有文件；不存在的路径会被静默跳过 |
+| `embedded-files` | `array` | 递归打包进 `bin` 可执行文件的文件或目录。未由 `sources` 成功 AOT 编译的 PHP 文件会在构建期生成 opcode，运行时由 ZendVM 按需执行 |
 | `build-dir` | `string` | 构建目录，等价于 `--build-dir`。支持相对路径和绝对路径；相对路径基于当前 YAML 文件所在目录解析 |
 | `dry` | `boolean` | 干运行模式，等价于 `--dry` |
 | `cxx-std` | `string` | C++ 标准版本，等价于 `--cxx-std` |
@@ -144,6 +150,23 @@ resource:
 | `link-paths` | `array` | 库搜索路径，等价于 `-L`。每项为目录路径 |
 | `extension-dependencies` / `ext-deps` | `array` | 必需的 PHP 扩展模块名。`ext-deps` 是简写别名；两者不能同时出现。编译器将其写入 `zend_module_entry.deps`，由 Zend 在加载 TypePHP 模块时检查 |
 | `resource` | `object` | Windows 平台资源配置（图标等） |
+
+## 嵌入 PHP 依赖和运行时资源
+
+`embedded-files` 可以把 Composer `vendor`、AOT 暂不支持的 PHP 文件，以及配置、模板等只读资源一起放入可执行文件。发布环境无需执行 `composer install`，也无需携带磁盘上的 `vendor` 目录。构建机必须提供与目标 PHP 匹配的 PHP CLI 和 OPcache；运行时不依赖 OPcache。
+
+```yaml
+mode: bin
+sources:
+  - main.php
+  - src
+
+embedded-files:
+  - vendor
+  - resources
+```
+
+Composer autoload 的调用方式保持不变，`vendor/autoload.php` 和后续类文件会从可执行文件的内存表中按需加载。`sources`、`ignore` 与 `embedded-files` 的关系、开发和发布配置拆分、缓存行为、性能影响及完整限制见[将依赖和资源嵌入可执行文件](embedded-files.md)。
 
 ## PHP 扩展依赖
 

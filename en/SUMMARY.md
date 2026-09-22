@@ -4,6 +4,7 @@
 * [Compilation](compile.md)
     * [Command-Line Options](options.md)
     * [project.yml Configuration](project-yml.md)
+    * [Embedding Dependencies and Resources](embedded-files.md)
     * [Nano Native Compilation](nano.md)
     * [Compiling to WebAssembly](wasm.md)
     * [Android, iOS, and macOS Native Applications](mobile-native.md)

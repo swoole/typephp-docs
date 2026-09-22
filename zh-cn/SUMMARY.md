@@ -4,6 +4,7 @@
 * [编译](compile.md)
     * [命令行参数](options.md)
     * [project.yml 配置](project-yml.md)
+    * [内嵌动态脚本文件](embedded-files.md)
     * [Nano 原生编译](nano.md)
     * [编译到 WebAssembly](wasm.md)
     * [Android、iOS 与 macOS 原生应用](mobile-native.md)

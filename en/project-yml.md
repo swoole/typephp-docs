@@ -36,6 +36,11 @@ ignore:
   - src/tests/
   - src/vendor/
 
+# Package dependencies and read-only resources into the release executable
+embedded-files:
+  - vendor/
+  - resources/
+
 # Build directory (relative paths are resolved relative to the directory containing this YAML file)
 build-dir: build/out
 
@@ -124,6 +129,7 @@ resource:
 | `sanitize` | `string` | Enables a sanitizer, equivalent to `--sanitize`, e.g. `address`, `undefined` |
 | `sources` | `array` | List of source files or directories. Supports `.php`, `.cpp`, `.c`, `.s`, `.m`, `.mm`. Can use `if` + `path` to load conditionally by PHP version or operating system |
 | `ignore` | `array` | Files or directories to exclude. Each entry must be an explicit path — **wildcards and regular expressions are not supported**. A directory entry excludes everything below it; entries that do not exist are silently skipped |
+| `embedded-files` | `array` | Files or directories recursively packaged into a `bin` executable. PHP files not successfully AOT-compiled from `sources` receive build-time opcodes and are executed lazily by ZendVM at runtime |
 | `build-dir` | `string` | Build directory, equivalent to `--build-dir`. Supports relative and absolute paths; relative paths are resolved relative to the directory containing the current YAML file |
 | `dry` | `boolean` | Dry-run mode, equivalent to `--dry` |
 | `cxx-std` | `string` | C++ standard version, equivalent to `--cxx-std` |
@@ -144,6 +150,23 @@ resource:
 | `link-paths` | `array` | Library search paths, equivalent to `-L`. Each entry is a directory path |
 | `extension-dependencies` / `ext-deps` | `array` | Required PHP extension module names. `ext-deps` is an abbreviated alias; the two cannot appear at the same time. The compiler writes them into `zend_module_entry.deps`, which Zend checks when loading the TypePHP module |
 | `resource` | `object` | Windows platform resource configuration (icons, etc.) |
+
+## Embedding PHP dependencies and runtime resources
+
+`embedded-files` packages Composer `vendor`, PHP files that AOT does not yet support, and read-only resources such as configuration and templates into the executable. The release host does not need to run `composer install` or carry a disk `vendor` tree. The build host needs PHP CLI and OPcache matching the target PHP; the runtime does not depend on OPcache.
+
+```yaml
+mode: bin
+sources:
+  - main.php
+  - src
+
+embedded-files:
+  - vendor
+  - resources
+```
+
+Composer autoload is used normally. `vendor/autoload.php` and later class files are loaded lazily from the executable's memory tables. See [Embedding Dependencies and Resources in an Executable](embedded-files.md) for the relationship among `sources`, `ignore`, and `embedded-files`, separate development and release configurations, caching, performance, and complete limitations.
 
 ## PHP extension dependencies
 
