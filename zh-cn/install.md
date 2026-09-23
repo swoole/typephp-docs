@@ -6,7 +6,7 @@ TypePHP 推荐直接使用 GitHub Releases 提供的、已经自举编译完成�
 
 ## 1. 下载 tpc
 
-打开 TypePHP Releases 页面，选择与当前操作系统和 CPU 架构匹配的软件包：
+打开 TypePHP Releases 页面，选择与当前操作系统、CPU 架构和 PHP 版本匹配的软件包：
 
 <https://github.com/swoole/typephp/releases>
 
@@ -15,11 +15,18 @@ TypePHP 推荐直接使用 GitHub Releases 提供的、已经自举编译完成�
 ```bash
 mkdir -p "$HOME/typephp"
 cd "$HOME/typephp"
-tar -xf /path/to/typephp-linux-x86_64.tar.gz
+tar -xf /path/to/tpc_v*_linux_x64_php8.4.*-zts.tar.gz
+cd tpc_v*_linux_x64_php8.4.*-zts
 chmod +x tpc
 ```
 
-实际压缩包名称以 Releases 页面为准。不要使用其他操作系统或 CPU 架构的二进制文件。
+示例中的版本号以 Releases 页面实际文件名为准。发布页同时提供 PHP 8.4 ZTS 和 PHP
+8.5 ZTS 版本，文件名记录了构建使用的完整 PHP 版本。不要混用其他操作系统、CPU
+架构、PHP 版本或 ZTS/NTS ABI 的二进制文件。
+
+Linux 和 macOS 压缩包只包含 `tpc`、中英文 README 和 LICENSE。编译器所需的
+production Composer 依赖已经通过 `embedded-files` 嵌入 `tpc`，无需执行
+`composer install`，也不需要磁盘上的 `vendor` 目录。
 
 TypePHP 生成的是当前平台的原生可执行程序，不是 PHP 字节码。
 

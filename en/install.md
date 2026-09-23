@@ -6,7 +6,7 @@ If you are using the Windows toolkit or prefer to run `tpc.php` via the PHP Comp
 
 ## 1. Download tpc
 
-Open the TypePHP Releases page and select the package that matches your operating system and CPU architecture:
+Open the TypePHP Releases page and select the package that matches your operating system, CPU architecture, and PHP version:
 
 <https://github.com/swoole/typephp/releases>
 
@@ -15,11 +15,14 @@ After downloading, extract it, for example:
 ```bash
 mkdir -p "$HOME/typephp"
 cd "$HOME/typephp"
-tar -xf /path/to/typephp-linux-x86_64.tar.gz
+tar -xf /path/to/tpc_v*_linux_x64_php8.4.*-zts.tar.gz
+cd tpc_v*_linux_x64_php8.4.*-zts
 chmod +x tpc
 ```
 
-The actual archive name depends on the Releases page. Do not use binaries for a different operating system or CPU architecture.
+Use the actual version shown on the Releases page in place of the example. The release provides both PHP 8.4 ZTS and PHP 8.5 ZTS builds, and each filename records the complete PHP version used for the build. Do not mix binaries for another operating system, CPU architecture, PHP version, or ZTS/NTS ABI.
+
+Linux and macOS archives contain only `tpc`, the English and Chinese READMEs, and the license. Production Composer dependencies are embedded in `tpc` through `embedded-files`; no `composer install` or disk `vendor` directory is required.
 
 TypePHP produces native executable programs for the current platform, not PHP bytecode.
 
