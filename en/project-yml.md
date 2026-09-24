@@ -16,6 +16,15 @@ output: build/myapp
 # Under WASM, you can also use library to generate a Component with a WIT export interface
 mode: bin
 
+# A bin target can select one or more PHP SAPIs; embed is the default
+# sapi: [embed, cli, fpm]
+# CLI requires an embedded entry executed by Zend VM
+# entry: bin/console.php
+# Build a private PHP runtime from php-src
+# php-builder:
+#   extensions: [swoole, mongodb]
+#   zts: on
+
 # Optimization level, parallel jobs, and debug switch
 optimize: 2
 job: 8
@@ -118,7 +127,10 @@ resource:
 |--------|------|------|
 | `output` | `string` | Output file path, equivalent to `-o` / `--output`. Can include a directory part, for example `build/myapp` |
 | `name` | `string` | Only sets the output filename, does not change the output directory. For example, `name: myapp` generates `./myapp` in the current working directory |
-| `mode` / `build-mode` / `type` | `string` | Build mode, equivalent to `-m`. Host builds support `bin`/`binary`/`cli`, `lib`/`library`/`shared`, and `ext`/`extension`; WASM builds use the command mode or the `lib`/`library`/`reactor` library component mode |
+| `mode` / `build-mode` / `type` | `string` | Build mode, equivalent to `-m`. Host builds support `bin`/`binary`, `lib`/`library`/`shared`, and `ext`/`extension`; `cli` and `fpm` are SAPIs, not modes |
+| `sapi` | `string` or `array` | PHP SAPI for a `bin` target: `embed`, `cli`, or `fpm`; default `embed`. Multiple targets may be selected |
+| `entry` | `string` | PHP entry executed when the CLI SAPI starts. Required with `cli`; resolved relative to the YAML file |
+| `php-builder` | `object` | Builds a private static PHP runtime from php-src. Supports an `extensions` array and `zts: on/off`; an empty configuration must be `{}` |
 | `optimize` | `integer` | Optimization level, equivalent to `-O`, range `0` ~ `3` |
 | `job` | `integer` | Number of parallel compile jobs, equivalent to `-j` / `--job` |
 | `debug` | `boolean` | Enables debug mode, equivalent to `-d` / `--debug` |
@@ -215,7 +227,14 @@ extension_loaded('curl');
 
 Do not fill in operating system package names, dynamic library filenames, or linker options; for example, `php8.4-curl`, `libcurl.so`, and `-lcurl` are not PHP module names.
 
-`extension-dependencies` only declares the load order and runtime required relationships; it does not install, enable, or statically link extensions. During deployment, you still need to load the corresponding extensions in advance via `php.ini` or SAPI configuration:
+With an ordinary host PHP build, `extension-dependencies` only declares load
+order and runtime requirements; it does not install, enable, or statically link
+extensions. When `php-builder` is enabled, these names are also added to the
+private runtime requirement set and compiled statically into PHP. See
+[PHP Builder and SAPI Targets](php-builder.md) for the complete rules.
+
+When using host PHP, the required extensions must still be loaded first through
+`php.ini` or SAPI configuration:
 
 ```ini
 extension=pdo_mysql

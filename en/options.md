@@ -43,6 +43,60 @@ Uses the base name of the entry file or directory by default. Building a binary 
 ./tpc project.yml -m lib
 ```
 
+### `--sapi <embed|cli|fpm>` — PHP SAPI
+
+Selects the PHP SAPI used by a `mode: bin` executable. The default is `embed`.
+Separate multiple targets with commas:
+
+```shell
+./tpc project.yml --sapi=embed,cli,fpm --php-builder
+```
+
+`cli` and `fpm` are not modes and always require `php-builder`. Multiple targets
+produce separate programs with `-embed`, `-cli`, and `-fpm` suffixes.
+
+### `--entry <file>` — CLI entry script
+
+Selects the embedded PHP primary script executed by Zend VM when the CLI SAPI
+starts. It is required whenever `sapi` contains `cli` and cannot be used without
+selecting `cli`.
+
+```shell
+./tpc src/functions.php --sapi=cli --entry=bin/app.php --php-builder
+```
+
+### `--php-builder[=<config>]` — build PHP from php-src
+
+Enables a private static PHP build that does not depend on the host PHP runtime.
+Without a value, it uses the default `{}` configuration:
+
+```shell
+./tpc hello.php --php-builder
+```
+
+An explicit configuration uses YAML field names separated by semicolons. Quote
+the complete value:
+
+```shell
+./tpc project.yml \
+    --sapi=cli \
+    --entry=bin/app.php \
+    --php-builder='extensions: [swoole, mongodb]; zts: on'
+```
+
+`sapi` is not a `php-builder` field and must always use the independent `--sapi`
+option. See [PHP Builder and SAPI Targets](php-builder.md) for platform limits,
+caching, extension collection, and the complete semantics.
+
+### `--proxy <url>` — network proxy
+
+Sets an HTTP(S) or SOCKS proxy for PHP downloads, PECL extensions, and other
+network operations. It is a global option, not a `php-builder` field:
+
+```shell
+./tpc project.yml --proxy=socks5h://127.0.0.1:1080 --php-builder
+```
+
 ### `-d, --debug` — debug mode
 
 Automatically disables optimization and adds debug symbols (`-g`), making it easier to debug the generated binary with GDB/LLDB.

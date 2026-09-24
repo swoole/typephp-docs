@@ -16,7 +16,7 @@ If the directory containing the binary is already in `PATH`, you can also use `t
 
 ## Single-file compilation
 
-The PHP file must provide a global `main()` entry point:
+With the default Embed SAPI, the PHP file must provide a global `main()` entry point:
 
 ```php
 <?php
@@ -111,7 +111,12 @@ See [TypePHP Dynamic Libraries](library.md) for the full steps to create, publis
 
 When an extension depends on other PHP modules such as `pdo_mysql` or `curl`, you can use `extension-dependencies` (abbreviated `ext-deps`) in YAML to write the required dependencies into the Zend module metadata. The two configuration names cannot appear at the same time. This configuration does not auto-load extensions, and is different from the `link-libs` of native libraries; see [project.yml: PHP Extension Dependencies](project-yml.md#php-extension-dependencies) for the full configuration and deployment order.
 
-Linux `bin` mode requires `libphp.so` or `libphp.a`. The `tpc` binary itself also depends on `libphp.so` and `libphpx.so`, so it cannot start the installer on its own when the libraries are missing. Composer users should prepare these libraries automatically via `vendor/bin/tpc.php`; see [Composer Installation](composer.md). `ext` mode does not trigger the Embed PHP installer.
+`mode` describes only the artifact type. A `bin` build independently selects
+`embed`, `cli`, or `fpm` through `sapi`, and `php-builder` can build a private
+static runtime from php-src without depending on the host PHP runtime. The
+default `sapi: embed` may still link the host `libphp`; CLI and FPM always require
+`php-builder`. See [PHP Builder and SAPI Targets](php-builder.md) for entry
+scripts, multi-target outputs, extension collection, and runtime caching.
 
 Use `--nano` to produce a native program that does not depend on `libphp` and
 does not contain the Zend VM. Nano adds the PHP Nano and PHPX C/C++ sources

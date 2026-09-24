@@ -43,6 +43,55 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 ./tpc project.yml -m lib
 ```
 
+### `--sapi <embed|cli|fpm>` — PHP SAPI
+
+选择 `mode: bin` 可执行文件使用的 PHP SAPI，默认是 `embed`。多个目标使用逗号分隔：
+
+```shell
+./tpc project.yml --sapi=embed,cli,fpm --php-builder
+```
+
+`cli` 和 `fpm` 不是 mode，并且必须配合 `php-builder`。多个目标会分别生成带
+`-embed`、`-cli`、`-fpm` 后缀的程序。
+
+### `--entry <file>` — CLI 入口脚本
+
+指定 CLI SAPI 启动时由 Zend VM 执行的内嵌 PHP 主脚本。只要 `sapi` 包含 `cli`
+就必须设置；未选择 `cli` 时不能设置。
+
+```shell
+./tpc src/functions.php --sapi=cli --entry=bin/app.php --php-builder
+```
+
+### `--php-builder[=<config>]` — 从 php-src 构建 PHP
+
+启用不依赖宿主机 PHP 运行时的私有静态 PHP 构建。不带值时使用默认配置 `{}`：
+
+```shell
+./tpc hello.php --php-builder
+```
+
+显式配置使用 YAML 字段和分号分隔，必须整体加引号：
+
+```shell
+./tpc project.yml \
+    --sapi=cli \
+    --entry=bin/app.php \
+    --php-builder='extensions: [swoole, mongodb]; zts: on'
+```
+
+`sapi` 不属于 `php-builder`，应始终通过独立的 `--sapi` 设置。完整语义、平台限制、
+缓存和扩展收集规则见 [PHP Builder 与 SAPI](php-builder.md)。
+
+### `--proxy <url>` — 网络代理
+
+为下载 PHP、PECL 扩展及其他网络操作设置 HTTP(S) 或 SOCKS 代理。它是全局选项，
+不属于 `php-builder`：
+
+```shell
+./tpc project.yml --proxy=socks5h://127.0.0.1:1080 --php-builder
+```
+
 ### `-d, --debug` — 调试模式
 
 自动禁用优化并添加调试符号（`-g`），便于使用 GDB/LLDB 调试生成的二进制文件。

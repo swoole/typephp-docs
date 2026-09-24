@@ -16,6 +16,15 @@ output: build/myapp
 # WASM 下还可使用 library，生成具有 WIT 导出接口的 Component
 mode: bin
 
+# bin 目标可选择一个或多个 PHP SAPI；默认 embed
+# sapi: [embed, cli, fpm]
+# CLI 必须指定由 Zend VM 执行的内嵌入口
+# entry: bin/console.php
+# 从 php-src 构建私有 PHP 运行时
+# php-builder:
+#   extensions: [swoole, mongodb]
+#   zts: on
+
 # 优化级别、并行任务和调试开关
 optimize: 2
 job: 8
@@ -118,7 +127,10 @@ resource:
 |--------|------|------|
 | `output` | `string` | 输出文件路径，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
 | `name` | `string` | 仅设置输出文件名，不改变输出目录。例如 `name: myapp` 会在当前工作目录生成 `./myapp` |
-| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。Host 构建支持 `bin`/`binary`/`cli`、`lib`/`library`/`shared` 和 `ext`/`extension`；WASM 构建使用命令模式或 `lib`/`library`/`reactor` library component 模式 |
+| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。Host 构建支持 `bin`/`binary`、`lib`/`library`/`shared` 和 `ext`/`extension`；`cli`、`fpm` 是 SAPI，不是 mode |
+| `sapi` | `string` 或 `array` | `bin` 目标的 PHP SAPI：`embed`、`cli`、`fpm`，默认 `embed`；可同时选择多个 |
+| `entry` | `string` | CLI SAPI 启动时执行的 PHP 入口文件。包含 `cli` 时必填，路径相对于 YAML 文件解析 |
+| `php-builder` | `object` | 从 php-src 构建私有静态 PHP 运行时；支持 `extensions` 数组和 `zts: on/off`。空配置必须写成 `{}` |
 | `optimize` | `integer` | 优化级别，等价于 `-O`，取值范围 `0` ~ `3` |
 | `job` | `integer` | 并行编译任务数，等价于 `-j` / `--job` |
 | `debug` | `boolean` | 启用调试模式，等价于 `-d` / `--debug` |
@@ -215,7 +227,11 @@ extension_loaded('curl');
 
 不要填写操作系统软件包名、动态库文件名或链接参数，例如 `php8.4-curl`、`libcurl.so`、`-lcurl` 都不是 PHP 模块名。
 
-`extension-dependencies` 只声明加载顺序和运行时必需关系，不会安装、启用或静态链接扩展。部署时仍需通过 `php.ini` 或 SAPI 配置提前加载相应扩展：
+普通宿主 PHP 构建中，`extension-dependencies` 只声明加载顺序和运行时必需关系，
+不会安装、启用或静态链接扩展。启用 `php-builder` 时，这些名称还会加入私有运行时的
+扩展需求集合并静态编入 PHP。完整规则见 [PHP Builder 与 SAPI](php-builder.md)。
+
+使用宿主 PHP 时，部署仍需通过 `php.ini` 或 SAPI 配置提前加载相应扩展：
 
 ```ini
 extension=pdo_mysql

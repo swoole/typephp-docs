@@ -4,6 +4,7 @@
 * [Compilation](compile.md)
     * [Command-Line Options](options.md)
     * [project.yml Configuration](project-yml.md)
+    * [PHP Builder and SAPI Targets](php-builder.md)
     * [Embedding Dependencies and Resources](embedded-files.md)
     * [Nano Native Compilation](nano.md)
     * [Compiling to WebAssembly](wasm.md)

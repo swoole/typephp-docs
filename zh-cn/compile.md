@@ -16,7 +16,7 @@
 
 ## 单文件编译
 
-PHP 文件必须提供全局 `main()` 入口：
+默认 Embed SAPI 下，PHP 文件必须提供全局 `main()` 入口：
 
 ```php
 <?php
@@ -111,7 +111,11 @@ build-dir: build
 
 扩展依赖 `pdo_mysql`、`curl` 等其他 PHP 模块时，可在 YAML 中使用 `extension-dependencies`（简写为 `ext-deps`）将必需依赖写入 Zend 模块元数据。两个配置名不能同时出现。该配置不会自动加载扩展，也不同于原生库的 `link-libs`；完整配置和部署顺序见 [project.yml：PHP 扩展依赖](project-yml.md#php-扩展依赖)。
 
-Linux `bin` 模式需要 `libphp.so` 或 `libphp.a`。二进制 `tpc` 自身也依赖 `libphp.so` 和 `libphpx.so`，所以它不能在缺库时自行启动安装器。Composer 用户应通过 `vendor/bin/tpc.php` 自动准备这些库，详见[Composer 安装](composer.md)。`ext` 模式不触发 Embed PHP 安装器。
+`mode` 只表达产物类型。`bin` 模式还可以通过独立的 `sapi` 选择 `embed`、`cli`、
+`fpm`，并用 `php-builder` 从 php-src 构建不依赖宿主机 PHP 的私有静态运行时。
+默认 `sapi: embed` 仍可直接链接宿主机 `libphp`；CLI 和 FPM 则必须启用
+`php-builder`。配置语义、入口脚本、多目标输出、扩展收集和缓存机制见
+[PHP Builder 与 SAPI](php-builder.md)。
 
 如果希望生成不依赖 `libphp`、不包含 ZendVM 的原生程序，可使用 `--nano`。Nano
 会把 PHP Nano 与 PHPX 的 C/C++ 源码直接加入应用构建，具体安装方法、平台差异和
