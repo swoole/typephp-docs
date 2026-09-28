@@ -47,11 +47,10 @@ Configuration rules:
 - `extensions` defaults to `[]` and explicitly adds extensions to the private PHP build.
 - `zts` defaults to `off`; explicitly writing `on` or `off` is recommended.
 - `sapi` cannot be nested under `php-builder`; it is always a top-level setting.
-- If `sapi` contains `cli`, `entry` is required. Setting `entry` without `cli` is an error.
+- If `sapi` contains `cli`, `entry` is required. Without `cli`, `entry` has no effect and emits a warning.
+- An ignored `entry` is not file-validated, embedded, or removed from the AOT `sources` set.
 - A YAML `entry` path is resolved relative to the directory containing `project.yml`.
 - Command-line settings override corresponding YAML settings.
-
-Legacy forms such as `mode: cli`, `mode: fpm`, and `php-builder.sapi` are not supported.
 
 ## Command-Line Configuration
 
@@ -261,6 +260,6 @@ the setting through `--proxy`.
 | `` `php-builder` must be a mapping `` | Use `php-builder: {}` or a mapping containing `extensions`/`zts`. |
 | `The cli and fpm SAPIs require php-builder` | Explicitly enable `php-builder` for CLI/FPM. |
 | `` `sapi` containing cli requires an `entry` PHP file `` | Select an existing PHP entry file for CLI. |
-| `` `entry` requires `sapi` to contain cli `` | Remove `entry`, or add `cli` to `sapi`. |
+| `` `entry` is ignored because `sapi` does not contain cli `` | The current target does not use an entry script; remove `entry`, or add `cli` to `sapi`. |
 | `` `sapi` is only supported with `mode: bin` `` | `lib` and `ext` cannot configure `sapi`. |
 | configure cannot find a header or library | Install the operating-system development package required by that extension and retry. |

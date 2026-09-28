@@ -58,8 +58,8 @@ produce separate programs with `-embed`, `-cli`, and `-fpm` suffixes.
 ### `--entry <file>` — CLI entry script
 
 Selects the embedded PHP primary script executed by Zend VM when the CLI SAPI
-starts. It is required whenever `sapi` contains `cli` and cannot be used without
-selecting `cli`.
+starts. It is required whenever `sapi` contains `cli`. Without `cli`, the option
+has no effect and emits a warning.
 
 ```shell
 ./tpc src/functions.php --sapi=cli --entry=bin/app.php --php-builder

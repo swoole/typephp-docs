@@ -129,7 +129,7 @@ resource:
 | `name` | `string` | Only sets the output filename, does not change the output directory. For example, `name: myapp` generates `./myapp` in the current working directory |
 | `mode` / `build-mode` / `type` | `string` | Build mode, equivalent to `-m`. Host builds support `bin`/`binary`, `lib`/`library`/`shared`, and `ext`/`extension`; `cli` and `fpm` are SAPIs, not modes |
 | `sapi` | `string` or `array` | PHP SAPI for a `bin` target: `embed`, `cli`, or `fpm`; default `embed`. Multiple targets may be selected |
-| `entry` | `string` | PHP entry executed when the CLI SAPI starts. Required with `cli`; resolved relative to the YAML file |
+| `entry` | `string` | PHP entry executed when the CLI SAPI starts. Required with `cli`; otherwise ignored with a warning. Resolved relative to the YAML file |
 | `php-builder` | `object` | Builds a private static PHP runtime from php-src. Supports an `extensions` array and `zts: on/off`; an empty configuration must be `{}` |
 | `optimize` | `integer` | Optimization level, equivalent to `-O`, range `0` ~ `3` |
 | `job` | `integer` | Number of parallel compile jobs, equivalent to `-j` / `--job` |

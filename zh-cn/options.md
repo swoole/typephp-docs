@@ -57,7 +57,7 @@ TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) �
 ### `--entry <file>` — CLI 入口脚本
 
 指定 CLI SAPI 启动时由 Zend VM 执行的内嵌 PHP 主脚本。只要 `sapi` 包含 `cli`
-就必须设置；未选择 `cli` 时不能设置。
+就必须设置；未选择 `cli` 时该参数不生效，并输出 warning。
 
 ```shell
 ./tpc src/functions.php --sapi=cli --entry=bin/app.php --php-builder

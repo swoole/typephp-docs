@@ -47,11 +47,10 @@ sources:
 - `extensions` 默认是 `[]`，用于显式补充需要编入 PHP 的扩展。
 - `zts` 默认是 `off`，推荐明确填写 `on` 或 `off`。
 - `php-builder` 中不能配置 `sapi`；SAPI 始终由顶层 `sapi` 选择。
-- `sapi` 中只要包含 `cli` 就必须设置 `entry`；没有 `cli` 时设置 `entry` 会报错。
+- `sapi` 中只要包含 `cli` 就必须设置 `entry`；没有 `cli` 时 `entry` 不生效，并输出 warning。
+- 被忽略的 `entry` 不会校验目标文件，也不会加入内嵌文件或从 AOT `sources` 中排除。
 - YAML 中的 `entry` 相对于 `project.yml` 所在目录解析。
 - 命令行参数覆盖 YAML 中的同名配置。
-
-旧的 `mode: cli`、`mode: fpm` 和 `php-builder.sapi` 均不受支持。
 
 ## 命令行配置
 
@@ -260,6 +259,6 @@ embedded-files:
 | `` `php-builder` must be a mapping `` | 使用 `php-builder: {}`，或填写 `extensions`/`zts` 映射。 |
 | `The cli and fpm SAPIs require php-builder` | 为 CLI/FPM 显式启用 `php-builder`。 |
 | `` `sapi` containing cli requires an `entry` PHP file `` | 为 CLI 指定存在的 PHP 入口文件。 |
-| `` `entry` requires `sapi` to contain cli `` | 删除 `entry`，或在 `sapi` 中加入 `cli`。 |
+| `` `entry` is ignored because `sapi` does not contain cli `` | 当前目标不使用入口脚本；可以删除 `entry`，或在 `sapi` 中加入 `cli`。 |
 | `` `sapi` is only supported with `mode: bin` `` | `lib` 和 `ext` 不能配置 `sapi`。 |
 | configure 找不到头文件或库 | 安装对应扩展所需的操作系统开发包后重试。 |
