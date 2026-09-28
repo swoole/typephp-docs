@@ -229,10 +229,12 @@ vendor/bin/tpc.php --nano hello.php
 ./hello
 ```
 
-Outside Windows, Nano currently supports only `bin` mode, cannot be combined
-with `--full-static`, `-l`, or `-L`, and requires C++17. See
-[Nano Native Compilation](nano.md) for dependency installation, the supported
-API, static extensions, and WASI usage.
+Outside Windows, Nano supports `bin` and `lib`: `bin` produces an executable
+with `main`, while `lib` produces a shared library initialized by its native
+host. It does not support `ext`. Nano cannot be combined with `--full-static`,
+`-l`, or `-L`, and requires C++17. See [Nano Native Compilation](nano.md) for
+dependency installation, library lifecycle, the supported API, static
+extensions, and WASI usage.
 
 ### `--wasm[=profile]` — compile to WASI 0.2
 

@@ -118,10 +118,12 @@ default `sapi: embed` may still link the host `libphp`; CLI and FPM always requi
 `php-builder`. See [PHP Builder and SAPI Targets](php-builder.md) for entry
 scripts, multi-target outputs, extension collection, and runtime caching.
 
-Use `--nano` to produce a native program that does not depend on `libphp` and
-does not contain the Zend VM. Nano adds the PHP Nano and PHPX C/C++ sources
-directly to the application build. See [Nano Native Compilation](nano.md) for
-installation, platform differences, and the capability boundary.
+Use `--nano` to produce a native executable or shared library that does not
+depend on `libphp` and does not contain the Zend VM. Nano adds the PHP Nano and
+PHPX C/C++ sources directly to the application build. It supports `mode: bin`
+and `mode: lib`, but not `mode: ext`. See [Nano Native Compilation](nano.md) for
+installation, library lifecycle, platform differences, and the capability
+boundary.
 
 ## Inspecting the generated code
 

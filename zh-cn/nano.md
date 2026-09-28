@@ -1,8 +1,8 @@
-Nano 模式用于生成不携带 PHP 解释器和 ZendVM 的 TypePHP 原生程序。PHP 仍用于
+Nano 模式用于生成不携带 PHP 解释器和 ZendVM 的 TypePHP 原生程序或共享库。PHP 仍用于
 运行编译器，Composer 仍用于安装编译期依赖；它们不会成为最终程序的运行时依赖。
 
 在 Linux、macOS、iOS 和 Android 目标上，TypePHP 会读取 Composer 包提供的源码
-清单，把 PHP Nano、PHPX 和生成的 C++ 一起编译。最终程序不链接 `libphp`，也不能
+清单，把 PHP Nano、PHPX 和生成的 C++ 一起编译。最终产物不链接 `libphp`，也不能
 在运行时解释或加载 PHP 源码。
 
 ## 与普通模式的区别
@@ -27,8 +27,10 @@ Nano 不是重新实现一套 PHP 数据结构。它直接复用 PHP 8.6 的 `zv
 重复声明 PHPX：
 
 ```shell
-composer require --dev swoole/typephp swoole/php-nano
+composer require --dev swoole/typephp "swoole/php-nano:^1.0.2"
 ```
+
+`mode: lib`、Android、iOS 和 macOS 的源码组合支持需要 PHP Nano 1.0.2 或更高版本。
 
 Nano 的生产构建不使用 CMake。TypePHP 直接读取 `swoole/php-nano` 与
 `swoole/phpx` 的 Composer 元数据，将其中列出的 `.c`、`.cc` 和 `.cpp` 文件加入
@@ -37,7 +39,7 @@ Nano 的生产构建不使用 CMake。TypePHP 直接读取 `swoole/php-nano` 与
 当前用于启动 `vendor/bin/tpc.php` 的 PHP 必须满足 TypePHP 的版本要求。它只在
 编译期运行；Nano 内部复用 PHP 8.6 源码，并不要求目标设备安装 PHP 8.6。
 
-## 编译第一个程序
+## 编译第一个可执行程序
 
 创建 `hello.php`：
 
@@ -71,8 +73,17 @@ Nano 与普通模式共用参数解析、代码生成、并行任务、进度显
 编译；后续构建会复用 `build` 中未失效的目标文件。使用 `--force` 才会忽略缓存，
 使用 `--no-progress` 可将进度条改为逐文件日志。
 
-单文件、源码目录和 `project.yml` 的输入方式均保持不变。非 Windows Nano 当前只
-支持可执行文件，即 `-m bin`；还要求：
+单文件、源码目录和 `project.yml` 的输入方式均保持不变。非 Windows Nano 支持两种
+产物类型：
+
+- `mode: bin`：生成包含操作系统 `main` 入口的可执行文件，并调用 TypePHP 全局
+  `main()`；
+- `mode: lib`：生成供 Android JNI、iOS/macOS 桥接或其他原生宿主加载的共享库，
+  不生成操作系统 `main`。
+
+`mode: ext` 生成的是供完整 PHP 加载的扩展，与 Nano 的自带运行时模型冲突，因此
+不受支持。`bin` 与 `lib` 编译相同的 Nano 运行时和能力集合，核心差异只是 `main`
+入口由产物还是原生宿主提供。两者都还要求：
 
 - 使用 C++17；
 - 不与 `--full-static` 组合；
@@ -80,6 +91,50 @@ Nano 与普通模式共用参数解析、代码生成、并行任务、进度显
 
 PHP Nano 中 PHP 自带的 PCRE2、timelib 和 libbcmath 等源码会直接编入程序，不是
 额外的动态链接依赖。
+
+## 共享库与原生宿主
+
+共享库项目通过 YAML 选择 `mode: lib`，通过命令行启用 Nano：
+
+```yaml
+name: my_runtime
+mode: lib
+output: build/libmy_runtime.so
+cxx-std: c++17
+
+sources:
+  - src
+  - bridge
+```
+
+```shell
+vendor/bin/tpc.php project.yml --nano
+```
+
+`lib` 没有全局 `main()` 要求。TypePHP 会根据项目名导出一对 C ABI 生命周期函数；
+原生桥接可以包含 `typephp_runtime.h`，通过 `TYPEPHP_RUNTIME_INIT(my_runtime)` 和
+`TYPEPHP_RUNTIME_SHUTDOWN(my_runtime)` 引用它们。初始化函数接收 `argc`/`argv`，
+成功返回 `0`。初始化成功后，宿主才可以调用生成的 TypePHP 函数。
+
+```cpp
+#include <typephp_runtime.h>
+
+TYPEPHP_RUNTIME_INIT_FUNCTION(my_runtime);
+TYPEPHP_RUNTIME_SHUTDOWN_FUNCTION(my_runtime);
+
+if (TYPEPHP_RUNTIME_INIT(my_runtime)(argc, argv) != 0) {
+    // 初始化失败，不得进入 TypePHP 回调
+}
+
+// 宿主生命周期结束且不再有 TypePHP 回调时：
+TYPEPHP_RUNTIME_SHUTDOWN(my_runtime)();
+```
+
+运行时应按进程或原生库生命周期初始化一次，而不是在每次 UI 事件或业务调用前
+重复初始化。关闭函数必须在宿主不再进入任何 TypePHP 回调后调用；由操作系统直接
+回收进程的移动应用也可以让运行时存活到进程结束。Nano 的 MINIT/RINIT 在初始化
+阶段执行一次，RSHUTDOWN/MSHUTDOWN 在关闭阶段执行一次，不存在 PHP Web 请求中的
+高频 RINIT/RSHUTDOWN 循环。
 
 ## 可用能力
 
@@ -129,6 +184,9 @@ Nano 保留 Zend 扩展生命周期，但不提供运行时动态加载。额外
 注册表。原有的 MINIT、RINIT、RSHUTDOWN 和 MSHUTDOWN 生命周期保持不变；扩展
 集合在程序构建完成后不可改变。扩展仍必须满足 Nano 的依赖和能力限制。
 
+这里的“扩展”指静态编入 Nano 运行时的 Composer 原生包，不是 `mode: ext` 产物。
+Nano 仍然不能生成供外部 PHP 动态加载的扩展。
+
 ## WASI
 
 Nano 可以与 WASI 目标组合：
@@ -152,9 +210,10 @@ WASI 是 Native Nano 的更小能力子集，仅保留目标运行时可表达�
 
 ## 平台差异
 
-- **Linux 与 macOS**：PHP Nano 和 PHPX 源码直接加入最终程序构建。
-- **iOS 与 Android**：PHP Nano 运行时接受对应 SDK/NDK 工具链编译；完整应用还需
-  平台 SDK、入口与 UI 层配置，参见[原生应用](mobile-native.md)。
+- **Linux 与 macOS**：PHP Nano 和 PHPX 源码直接加入最终产物构建。
+- **iOS 与 Android**：`bin`/`lib` 会用对应 SDK/NDK 工具链直接编译 PHP Nano 与
+  PHPX 源码，不需要预编译的 `libphp.a` 或 `libphpx.a`；完整应用仍需平台 SDK、
+  原生入口与 UI 桥接，参见[原生应用](mobile-native.md)。
 - **Windows**：不使用 PHP Nano 源码组合后端。`--nano` 仍禁止动态 PHP、外部命令
   和其他 Nano 能力，但程序继续通过 import library 链接完整的 `php.dll` 与
   `phpx.dll`，因此 Windows Nano 产物不是“不依赖 PHP DLL”的程序。
@@ -165,12 +224,13 @@ WASI 是 Native Nano 的更小能力子集，仅保留目标运行时可表达�
 ## 常见错误
 
 - **提示未安装 `swoole/php-nano`**：在当前项目执行
-  `composer require --dev swoole/php-nano`，并使用该项目的
+  `composer require --dev "swoole/php-nano:^1.0.2"`，并使用该项目的
   `vendor/bin/tpc.php`。
 - **提示 ABI 不一致**：更新或降级 `swoole/typephp`、`swoole/phpx` 与
   `swoole/php-nano`，让 Composer 解析到相互兼容的版本，不要混用其他项目的
   `vendor` 目录。
-- **提示只支持 `bin` 模式**：Nano 源码组合当前不能用于 `-m lib` 或 `-m ext`。
+- **提示不支持 `ext` 模式**：改用 `-m bin` 生成可执行文件，或用 `-m lib` 生成由
+  原生宿主加载的库。Nano 不能生成 PHP 动态扩展。
 - **首次编译看似较慢**：这是在编译完整的 Nano/PHPX 源码。保留 `build` 目录以便
   下次复用缓存；需要逐文件观察时使用 `--no-progress`。
 - **函数在普通模式可用、Nano 报不支持**：该函数依赖网络、进程、SAPI 或其他被

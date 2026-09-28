@@ -127,7 +127,7 @@ resource:
 |--------|------|------|
 | `output` | `string` | 输出文件路径，等价于 `-o` / `--output`。可包含目录部分，例如 `build/myapp` |
 | `name` | `string` | 仅设置输出文件名，不改变输出目录。例如 `name: myapp` 会在当前工作目录生成 `./myapp` |
-| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。Host 构建支持 `bin`/`binary`、`lib`/`library`/`shared` 和 `ext`/`extension`；`cli`、`fpm` 是 SAPI，不是 mode |
+| `mode` / `build-mode` / `type` | `string` | 构建模式，等价于 `-m`。Host 构建支持 `bin`/`binary`、`lib`/`library`/`shared` 和 `ext`/`extension`；`--nano` 仅支持 `bin` 与 `lib`；`cli`、`fpm` 是 SAPI，不是 mode |
 | `sapi` | `string` 或 `array` | `bin` 目标的 PHP SAPI：`embed`、`cli`、`fpm`，默认 `embed`；可同时选择多个 |
 | `entry` | `string` | CLI SAPI 启动时执行的 PHP 入口文件。包含 `cli` 时必填；否则不生效并输出 warning。路径相对于 YAML 文件解析 |
 | `php-builder` | `object` | 从 php-src 构建私有静态 PHP 运行时；支持 `extensions` 数组和 `zts: on/off`。空配置必须写成 `{}` |

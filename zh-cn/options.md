@@ -223,9 +223,10 @@ vendor/bin/tpc.php --nano hello.php
 ./hello
 ```
 
-非 Windows 的 Nano 当前只支持 `bin` 模式，不能与 `--full-static`、`-l` 或 `-L`
-组合使用，C++ 标准必须为 C++17。依赖安装、受支持 API、静态扩展和 WASI 用法见
-[Nano 原生编译](nano.md)。
+非 Windows 的 Nano 支持 `bin` 和 `lib`：`bin` 生成包含 `main` 的可执行文件，
+`lib` 生成由原生宿主初始化的共享库；不支持 `ext`。Nano 不能与 `--full-static`、
+`-l` 或 `-L` 组合使用，C++ 标准必须为 C++17。依赖安装、库生命周期、受支持
+API、静态扩展和 WASI 用法见 [Nano 原生编译](nano.md)。
 
 ### `--wasm[=profile]` — 编译到 WASI 0.2
 

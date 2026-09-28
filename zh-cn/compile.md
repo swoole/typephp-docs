@@ -117,9 +117,10 @@ build-dir: build
 `php-builder`。配置语义、入口脚本、多目标输出、扩展收集和缓存机制见
 [PHP Builder 与 SAPI](php-builder.md)。
 
-如果希望生成不依赖 `libphp`、不包含 ZendVM 的原生程序，可使用 `--nano`。Nano
-会把 PHP Nano 与 PHPX 的 C/C++ 源码直接加入应用构建，具体安装方法、平台差异和
-功能边界见 [Nano 原生编译](nano.md)。
+如果希望生成不依赖 `libphp`、不包含 ZendVM 的原生可执行文件或共享库，可使用
+`--nano`。Nano 会把 PHP Nano 与 PHPX 的 C/C++ 源码直接加入应用构建，支持
+`mode: bin` 和 `mode: lib`，不支持 `mode: ext`。具体安装方法、库生命周期、平台
+差异和功能边界见 [Nano 原生编译](nano.md)。
 
 ## 检查生成代码
 
