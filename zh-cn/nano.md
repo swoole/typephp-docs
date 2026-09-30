@@ -68,6 +68,11 @@ vendor/bin/tpc.php --nano hello.php -O2 -j8 -o build/hello
 vendor/bin/tpc.php --nano hello.php --run -- first second
 ```
 
+发布产物过大时，参阅[缩小可执行文件](reduce-binary-size.md)，包括 `strip`、
+源码选择和优化级别的建议。
+
+Nano 与完整 PHP 运行时对 `PHPRC` 等变量的支持差异见[环境变量](environment-variables.md)。
+
 Nano 与普通模式共用参数解析、代码生成、并行任务、进度显示、对象缓存和输出路径
 规则。第一次需要编译 PHP Nano 和 PHPX 的大量源码，时间会明显长于普通应用增量
 编译；后续构建会复用 `build` 中未失效的目标文件。使用 `--force` 才会忽略缓存，

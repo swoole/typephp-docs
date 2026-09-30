@@ -2,6 +2,8 @@
 
 TypePHP 编译器支持命令行参数和 [YAML 配置文件](project-yml.md) 两种方式指定编译选项。命令行参数优先级最高，其次是 YAML 配置，最后是默认值。
 
+`PHP_HOME`、`PHPRC` 等进程环境设置见[环境变量](environment-variables.md)。
+
 ### 用法
 
 ```shell

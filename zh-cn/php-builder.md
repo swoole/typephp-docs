@@ -22,6 +22,11 @@ TypePHP 将产物类型、PHP 进程接口和 PHP 运行时来源分成三个独
 
 `php-builder` 不依赖宿主机的 PHP 运行时，却仍使用操作系统提供的底层开发库。PHP、PHPX 和所选 PHP 扩展会静态链接进产物，libc、libxml、zlib、OpenSSL 等仍由系统提供。因此它不同于需要专用 SDK 的 `--full-static`。
 
+静态运行时使产物过大时，参阅[缩小可执行文件](reduce-binary-size.md)，其中介绍
+`strip`、扩展选择和不含开发包的生产版 `vendor`。
+
+私有运行时启动时的 `PHPRC`、`PHP_INI_SCAN_DIR` 配置见[环境变量](environment-variables.md)。
+
 ## YAML 配置
 
 ```yaml

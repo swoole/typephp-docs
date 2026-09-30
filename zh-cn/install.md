@@ -4,6 +4,9 @@ TypePHP 推荐直接使用 GitHub Releases 提供的、已经自举编译完成�
 
 如果使用 Windows 工具包或希望通过 PHP Composer 包运行 `tpc.php`，请阅读本页末尾的其他安装方式。
 
+`PHP_HOME`、`PHPX_HOME`、动态库搜索路径和运行时 `PHPRC` 的用法汇总在
+[环境变量](environment-variables.md)。
+
 ## 1. 下载 tpc
 
 打开 TypePHP Releases 页面。Linux 和 macOS 用户需要选择与操作系统、CPU 架构和

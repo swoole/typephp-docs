@@ -56,6 +56,12 @@ composer install --no-dev --classmap-authoritative
 tpc project-release.yml
 ```
 
+Run `composer install --no-dev` in a clean release checkout. Packages from
+`require-dev` will then be absent from `vendor` and from the embedded
+executable. A clean checkout also avoids leftover files from a development
+`vendor` directory. See [reducing executable size](reduce-binary-size.md) for
+the other release steps.
+
 The project-root `app.php` starts Composer autoload in the usual way:
 
 ```php

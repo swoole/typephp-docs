@@ -51,6 +51,11 @@ composer install --no-dev --classmap-authoritative
 tpc project-release.yml
 ```
 
+在干净的发布工作目录执行上述 `composer install --no-dev`：`require-dev`
+中的包不会进入 `vendor`，从而不会被 `embedded-files` 打进可执行文件。已有开发用
+`vendor` 时应先使用干净的发布目录，避免残留文件；再按需缩小嵌入范围。详见
+[缩小可执行文件](reduce-binary-size.md)。
+
 项目根目录的 `app.php` 仍按普通 Composer 方式启动自动加载器：
 
 ```php

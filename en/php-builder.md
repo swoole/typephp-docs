@@ -22,6 +22,13 @@ TypePHP treats the artifact type, PHP process interface, and PHP runtime source 
 
 `php-builder` does not depend on the host PHP runtime, but still uses low-level development libraries supplied by the operating system. PHP, PHPX, and selected PHP extensions are linked into the artifact, while libc, libxml, zlib, OpenSSL, and similar libraries remain system dependencies. It is therefore different from `--full-static`, which requires a dedicated SDK.
 
+If the static runtime makes the output too large, see
+[reducing executable size](reduce-binary-size.md) for stripping, extension
+selection, and a production-only `vendor` directory.
+
+See [environment variables](environment-variables.md) for `PHPRC` and
+`PHP_INI_SCAN_DIR` when starting a private runtime.
+
 ## YAML Configuration
 
 ```yaml

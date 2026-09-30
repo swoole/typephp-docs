@@ -79,6 +79,12 @@ vendor/bin/tpc.php --nano hello.php -O2 -j8 -o build/hello
 vendor/bin/tpc.php --nano hello.php --run -- first second
 ```
 
+For release-size guidance on `strip`, source selection, and optimization
+levels, see [reducing executable size](reduce-binary-size.md).
+
+See [environment variables](environment-variables.md) for the difference
+between Nano and the full PHP runtime, including `PHPRC`.
+
 Nano and regular mode share argument parsing, code generation, parallel jobs,
 progress reporting, the object cache, and output path rules. The first build
 compiles many PHP Nano and PHPX sources and is substantially slower than an

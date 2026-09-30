@@ -2,6 +2,9 @@
 
 TypePHP recommends directly using the pre-built, self-hosted `tpc` binary provided by GitHub Releases. This tutorial uses Linux as an example and assumes that mutually compatible `libphp.so` and `libphpx.so` have already been compiled and installed on the machine.
 
+See [environment variables](environment-variables.md) for `PHP_HOME`,
+`PHPX_HOME`, runtime library paths, and `PHPRC`.
+
 If you are using the Windows toolkit or prefer to run `tpc.php` via the PHP Composer package, see the other installation methods at the end of this page.
 
 ## 1. Download tpc

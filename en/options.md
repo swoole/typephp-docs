@@ -2,6 +2,9 @@
 
 The TypePHP compiler supports specifying compilation options via command-line arguments and a [YAML configuration file](project-yml.md). Command-line arguments have the highest priority, followed by YAML configuration, and finally default values.
 
+For process settings such as `PHP_HOME` and `PHPRC`, see
+[environment variables](environment-variables.md).
+
 ### Usage
 
 ```shell

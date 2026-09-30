@@ -45,6 +45,12 @@ function main(): void
 ./tpc hello.php -O2 -o build/hello
 ```
 
+如果 Nano 或 php-builder 生成的可执行文件过大，参阅[缩小可执行文件](reduce-binary-size.md)：
+发布时可对 Linux/macOS 产物使用 `strip`，嵌入 `vendor` 前可安装不含开发包的
+Composer 依赖。
+
+PHP/PHPX 安装路径、`PHPRC`、动态库搜索路径等设置见[环境变量](environment-variables.md)。
+
 编译成功后立即运行：
 
 ```bash

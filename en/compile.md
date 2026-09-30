@@ -45,6 +45,14 @@ Specify the optimization level and output path:
 ./tpc hello.php -O2 -o build/hello
 ```
 
+If a Nano or php-builder executable is too large, see
+[reducing executable size](reduce-binary-size.md). The guide covers stripping
+Linux/macOS release binaries and excluding development Composer packages
+before embedding `vendor`.
+
+See [environment variables](environment-variables.md) for PHP/PHPX paths,
+`PHPRC`, runtime library paths, and platform toolchain settings.
+
 Compile and run immediately:
 
 ```bash
