@@ -214,6 +214,10 @@ ext-deps:
 
 The compiler builds the required dependency table in the generated Zend module, equivalent to generating `ZEND_MOD_REQUIRED` for each entry. When the TypePHP extension is loaded, Zend first confirms that these modules are already loaded; when a required module is missing, the TypePHP module will not start normally. Duplicate names are deduplicated, and surrounding whitespace is removed from names.
 
+This table comes only from explicit YAML `ext-deps` (or `extension-dependencies`). References to extension functions or classes in source code and `ext-*` requirements in `composer.json` do not add module registration dependencies automatically. If the setting is omitted or an empty array, no required dependency table is generated. Check optional extensions with `extension_loaded()` before using them.
+
+php-builder and Nano retain their extension source selection mechanisms when building the PHP runtime. Selecting sources to compile and declaring required extensions at Zend module registration are separate steps. php-builder still collects source references and Composer extension requirements associated with embedded vendor files.
+
 Both `extension-dependencies` and `ext-deps` must be arrays, and each entry must be a non-empty string. All dependencies in the current configuration are required; optional, conflicts, or version-relation declarations are not supported.
 
 This configuration applies to `bin`, `lib`, and `ext` builds on the Host platform: all three modes generate a TypePHP Zend module entry, where `ext` is loaded directly by PHP and `bin`/`lib` are registered by the embedded runtime. The WASM Runtime's extension set is fixed when the runtime component is built, and cannot dynamically add missing PHP extensions via this configuration.

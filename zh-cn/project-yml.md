@@ -214,6 +214,10 @@ ext-deps:
 
 编译器会在生成的 Zend 模块中建立必需依赖表，等价于为每一项生成 `ZEND_MOD_REQUIRED`。加载 TypePHP 扩展时，Zend 会先确认这些模块已经加载；缺少必需模块时，TypePHP 模块不会正常启动。重复名称会被去重，名称前后的空白会被移除。
 
+此依赖表只来自 YAML 中显式配置的 `ext-deps`（或 `extension-dependencies`）。源码引用的扩展函数、类，以及 `composer.json` 中的 `ext-*`，均不会自动加入模块注册依赖。未声明或配置为空数组时，不生成必需依赖表。可选扩展应在使用前通过 `extension_loaded()` 检查。
+
+php-builder、Nano 在构建 PHP 运行时时选择扩展源码的机制仍然保留；选择编入哪些源码与 Zend 模块注册时要求哪些扩展加载，是两个独立步骤。php-builder 仍会收集源码引用和嵌入 vendor 对应的 Composer 扩展需求。
+
 `extension-dependencies` 和 `ext-deps` 都必须是数组，每一项必须是非空字符串。当前配置中的依赖均为必需依赖，不支持 optional、conflicts 或版本关系声明。
 
 该配置适用于 Host 平台的 `bin`、`lib` 和 `ext` 构建：三种模式都会生成 TypePHP 的 Zend 模块入口，其中 `ext` 由 PHP 直接加载，`bin`/`lib` 由嵌入式运行时注册。WASM Runtime 的扩展集合在构建运行时组件时已经固定，不能通过该配置动态加入缺失的 PHP 扩展。
