@@ -53,6 +53,8 @@ $env:PHP_INI_SCAN_DIR = 'C:\myapp\config\php.d'
 
 普通 Embed 程序和 `php-builder` 生成的 Embed/CLI/FPM 程序使用完整 PHP 运行时，启动时可读取 PHP 配置。运行编译器的 PHP 进程也会读取自己的配置；**编译器进程加载的 `php.ini` 不会自动嵌入生成的程序**。
 
+`PHPRC` 同样影响 `tpc` 编译器本身。自定义配置必须保留编译器必需的扩展；例如 Windows 发布包需要加载 `mbstring`，只包含 `opcache.enable=0` 的精简 ini 会导致编译器启动失败。建议复制发布包自带的 `php.ini` 后调整，保留正确的 `extension_dir` 和 `extension=mbstring`。TypePHP 会尊重用户设置的 `PHPRC`，不会自动清除它。若专用配置只用于运行产物，应在编译完成后再为产物进程设置。
+
 | 变量 | 作用 |
 |---|---|
 | `PHPRC` | 指定主配置文件的位置，可为目录或配置文件路径。指向目录时，PHP 会先考虑相应 SAPI 的配置文件，再查找 `php.ini`；例如 Embed SAPI 会先查找 `php-embed.ini`。指向可读取文件时直接加载该文件。CLI/FPM 自身的配置路径选项可能具有更高优先级。 |

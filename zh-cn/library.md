@@ -13,6 +13,12 @@ TypePHP 可以使用 `-m lib` 将 PHP 函数、类和 C++ 实现的 `php_*` 函�
 
 `-m lib` 会自动生成 `<库名>.stub.php`，描述库提供的函数和类。其他项目编译时读取它来检查接口，并找到需要链接的库。
 
+consumer 会在每次请求开始、结束时自动调用库的请求初始化和清理钩子，管理调用缓存、全局变量和静态变量。多个库共享的依赖只初始化一次，并在最后一个使用者释放后清理。库中可覆写的方法仍支持 consumer 子类的动态分派。
+
+Linux/macOS 上，普通库复用 consumer 的 PHP 运行时，不额外链接独立的 `libphp`。若库的 C/C++ 适配入口调用 `TYPEPHP_RUNTIME_INIT(库名)` 自行启动 PHP，编译器会根据目标文件符号保留 Embed 入口和 `libphp`；这种独立运行时的库用于原生宿主，不能加载进 PHP 扩展 consumer。检查目标文件需要工具链中的 `nm` 或 `llvm-nm`。
+
+升级编译器后，应重新编译库，并一起发布配套的动态库与 stub；旧库可能没有新编译器需要的生命周期接口。
+
 TypePHP 在构建目录中生成的 `php_<target>_func_decl.h` 和 `php_<target>_data_decl.h` 是内部文件，不需要随库发布。
 
 如果库还提供了额外的 C ABI 或 C++ ABI 接口，应由库作者自行编写并发布对应的 `.h` 文件。`.stub.php` 只描述供 TypePHP PHP 代码调用的函数。

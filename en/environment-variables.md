@@ -53,6 +53,8 @@ For downloads, use `./tpc --proxy=<URL>`. TypePHP passes this to its downloader 
 
 Regular Embed programs and php-builder Embed/CLI/FPM programs use a full PHP runtime and can load PHP configuration at startup. The PHP process that runs the compiler also loads its own configuration; **its `php.ini` is not automatically embedded into the generated program**.
 
+`PHPRC` also affects the `tpc` compiler itself. Custom configuration must retain the compiler's required extensions. For example, the Windows release needs `mbstring`; an ini containing only `opcache.enable=0` prevents the compiler from starting. Copy the bundled `php.ini` before adjusting settings, preserving the correct `extension_dir` and `extension=mbstring`. TypePHP respects the user's `PHPRC` and does not clear it automatically. If a dedicated configuration is intended only for the generated application, set it for that application's process after compilation.
+
 | Variable | Purpose |
 |---|---|
 | `PHPRC` | Main configuration location, either a directory or a configuration file path. For a directory, PHP first considers a SAPI-specific file, then `php.ini`; the Embed SAPI, for example, looks for `php-embed.ini` first. A readable file path loads that file directly. CLI/FPM configuration-path options may take precedence. |
